@@ -4,7 +4,7 @@ import { useRoute } from '../hooks/useRoute';
 import { routeToHash } from '../lib/router';
 import { encodeSharePayload } from '../lib/shareCodec';
 import { serializeToRDF } from '../lib/rdf/serializer';
-import { Palette, Check, Database, Trophy, HelpCircle, FileJson, LayoutGrid, Sparkles, FileText, Share2, PenTool, BookOpen, Menu, X, Download, Info } from 'lucide-react';
+import { Palette, Check, Database, Trophy, HelpCircle, FileJson, LayoutGrid, Sparkles, FileText, Share2, PenTool, BookOpen, Menu, X, Download, Info, Network } from 'lucide-react';
 
 interface HeaderProps {
   onAboutClick: () => void;
@@ -14,11 +14,12 @@ interface HeaderProps {
   onGalleryClick: () => void;
   onDesignerClick: () => void;
   onLearnClick: () => void;
+  onAnalysisClick: () => void;
   onNLBuilderClick?: () => void;
   onSummaryClick: () => void;
 }
 
-export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImportExportClick, onGalleryClick, onDesignerClick, onLearnClick, onNLBuilderClick, onSummaryClick }: HeaderProps) {
+export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImportExportClick, onGalleryClick, onDesignerClick, onLearnClick, onAnalysisClick, onNLBuilderClick, onSummaryClick }: HeaderProps) {
   const { theme, setTheme, totalPoints, earnedBadges, currentOntology, dataBindings } = useAppStore();
   const route = useRoute();
   const [shareStatus, setShareStatus] = useState<'idle' | 'copying' | 'copied' | 'downloaded'>('idle');
@@ -156,6 +157,9 @@ export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImport
         <button className="icon-btn" onClick={onLearnClick} data-tooltip="Ontology School" aria-label="Ontology School">
           <BookOpen size={20} />
         </button>
+        <button className="icon-btn" onClick={onAnalysisClick} data-tooltip="Project Analyzer" aria-label="Project Analyzer">
+          <Network size={20} />
+        </button>
         <button className="icon-btn" onClick={onImportExportClick} data-tooltip="Import / Export" aria-label="Import / Export">
           <FileJson size={20} />
         </button>
@@ -234,6 +238,9 @@ export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImport
             </button>
             <button className="mobile-menu-item" onClick={menuAction(onLearnClick)}>
               <BookOpen size={18} /> Ontology School
+            </button>
+            <button className="mobile-menu-item" onClick={menuAction(onAnalysisClick)}>
+              <Network size={18} /> Project Analyzer
             </button>
             <button className="mobile-menu-item" onClick={menuAction(onImportExportClick)}>
               <FileJson size={18} /> Import / Export

@@ -91,6 +91,14 @@ Type natural language questions ("Which customers placed orders?") and see how
 they map to ontology entities and relationships — a preview of Fabric IQ's
 NL2Ontology capability.
 
+### Project Analyzer
+
+A generic product-analysis workspace (`/#/analysis`) for mapping repositories,
+capabilities, features, mapped files, dependencies, MVP disposition, and release
+timing. The screen starts from a local JSON import so private product maps can
+stay outside this public repository. The included sample is fictional and exists
+only to demonstrate the workflow.
+
 ### Command Palette & Keyboard Shortcuts
 
 Press `⌘K` / `Ctrl+K` anywhere to open a searchable command palette. Jump
@@ -121,6 +129,7 @@ Client-side hash routing with shareable URLs for every page:
 | `/#/catalogue/<source>/<slug>` | Specific ontology (e.g. `/#/catalogue/official/cosmic-coffee`) |
 | `/#/designer` | Visual designer |
 | `/#/designer/<source>/<slug>` | Designer with catalogue ontology (e.g. `/#/designer/official/cosmic-coffee`) |
+| `/#/analysis` | Project Analyzer |
 | `/#/learn` | Ontology School — course catalogue |
 | `/#/learn/<course>` | Course detail — article list |
 | `/#/learn/<course>/<article>` | Article view (with presentation mode) |

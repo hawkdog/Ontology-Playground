@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+ontology-data/
+private-ontology-data/
+*.private.json
+*.private.rdf
 
 # Editor directories and files
 .vscode/*

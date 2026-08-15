@@ -9,6 +9,7 @@
  *   /#/embed/<source>/<slug>                         → full-page embed view
  *   /#/designer                                       → new blank ontology
  *   /#/designer/<source>/<slug>                       → edit existing ontology
+ *   /#/analysis                                       → project analysis workspace
  *   /#/learn                                          → course catalogue
  *   /#/learn/<course>                                 → course detail page
  *   /#/learn/<course>/<article>                       → article within a course
@@ -20,6 +21,7 @@ export type Route =
   | { page: 'catalogue'; ontologyId?: string; category?: string; source?: string }
   | { page: 'embed'; ontologyId: string }
   | { page: 'designer'; ontologyId?: string }
+  | { page: 'analysis' }
   | { page: 'learn'; courseSlug?: string; articleSlug?: string }
   | { page: 'share'; data: string };
 
@@ -88,6 +90,9 @@ export function parseHash(hash: string): Route {
     const id = sanitizeOntologyId(rest.join('/'));
     return { page: 'designer', ontologyId: id };
   }
+  if (segments[0] === 'analysis') {
+    return { page: 'analysis' };
+  }
   if (segments[0] === 'learn') {
     if (segments.length === 1) return { page: 'learn' };
     const courseSlug = sanitizeOntologyId(segments[1]);
@@ -110,7 +115,7 @@ export function parseHash(hash: string): Route {
 /** Convert a Route back to a hash string. */
 export function routeToHash(route: Route): string {
   switch (route.page) {
-    case 'catalogue':
+    case 'catalogue': {
       const hash = route.ontologyId
         ? `#/catalogue/${route.ontologyId}`
         : '#/catalogue';
@@ -119,12 +124,15 @@ export function routeToHash(route: Route): string {
       if (route.source) queryParams.set('source', route.source);
       const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
       return hash + query;
+    }
     case 'embed':
       return `#/embed/${route.ontologyId}`;
     case 'designer':
       return route.ontologyId
         ? `#/designer/${route.ontologyId}`
         : '#/designer';
+    case 'analysis':
+      return '#/analysis';
     case 'learn':
       if (route.courseSlug && route.articleSlug)
         return `#/learn/${route.courseSlug}/${route.articleSlug}`;

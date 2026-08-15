@@ -6,6 +6,17 @@
 
 ---
 
+## Project Analyzer
+
+- [x] Add a generic project-analysis workspace with fictional sample data.
+- [x] Add local import for private project-analysis JSON files.
+- [ ] Add local export for project-analysis JSON files.
+- [ ] Add file status fields for existing, future, and orphaned file mappings.
+- [ ] Add roadmap-doc ingestion for feature and release visualization.
+- [ ] Add ontology/RDF export for project-analysis models.
+
+---
+
 ## 1. RDF Import / Export (with full test coverage)
 
 The current RDF export is inline in `ImportExportModal.tsx` and there is no RDF

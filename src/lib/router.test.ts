@@ -80,6 +80,10 @@ describe('parseHash', () => {
     });
   });
 
+  it('parses analysis route', () => {
+    expect(parseHash('#/analysis')).toEqual({ page: 'analysis' });
+  });
+
   it('rejects designer route with path traversal', () => {
     expect(parseHash('#/designer/../../etc/passwd')).toEqual({
       page: 'designer',
@@ -261,6 +265,10 @@ describe('routeToHash', () => {
     );
   });
 
+  it('converts analysis route', () => {
+    expect(routeToHash({ page: 'analysis' })).toBe('#/analysis');
+  });
+
   it('converts learn route without slug', () => {
     expect(routeToHash({ page: 'learn' })).toBe('#/learn');
   });
@@ -295,6 +303,7 @@ describe('roundtrip', () => {
     { page: 'embed' as const, ontologyId: 'official/finance' },
     { page: 'designer' as const },
     { page: 'designer' as const, ontologyId: 'official/cosmic-coffee' },
+    { page: 'analysis' as const },
     { page: 'learn' as const },
     { page: 'learn' as const, courseSlug: 'ontology-fundamentals' },
     { page: 'learn' as const, courseSlug: 'ontology-fundamentals', articleSlug: 'what-is-an-ontology' },

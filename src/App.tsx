@@ -17,6 +17,7 @@ import {
   OntologySummaryModal,
   OntologyDesigner,
   LearnPage,
+  ProjectAnalyzer,
   Toast,
   CommandPalette,
   GuidedTour,
@@ -32,7 +33,7 @@ import { useRoute } from './hooks/useRoute';
 import { navigate } from './lib/router';
 import { decodeSharePayload } from './lib/shareCodec';
 import type { Catalogue } from './types/catalogue';
-import { Search, MessageSquare, Info, Compass, LayoutGrid, PenTool, BookOpen, FileJson, HelpCircle, Database, Palette, FileText } from 'lucide-react';
+import { Search, MessageSquare, Info, Compass, LayoutGrid, PenTool, BookOpen, FileJson, HelpCircle, Database, Palette, FileText, Network } from 'lucide-react';
 import './styles/app.css';
 
 const AI_BUILDER_ENABLED = import.meta.env.VITE_ENABLE_AI_BUILDER === 'true';
@@ -132,6 +133,7 @@ function App() {
   }, []);
 
   const openLearn = useCallback(() => navigate({ page: 'learn' }), []);
+  const openAnalysis = useCallback(() => navigate({ page: 'analysis' }), []);
 
   const cycleTheme = useCallback(() => {
     const idx = THEME_OPTIONS.findIndex((t) => t.id === theme);
@@ -171,13 +173,14 @@ function App() {
     { id: 'catalogue', label: 'Open Catalogue', icon: <LayoutGrid size={18} />, action: openGallery },
     { id: 'designer', label: 'Open Designer', icon: <PenTool size={18} />, action: openDesigner },
     { id: 'learn', label: 'Open Ontology School', icon: <BookOpen size={18} />, action: openLearn },
+    { id: 'analysis', label: 'Open Project Analyzer', icon: <Network size={18} />, action: openAnalysis },
     { id: 'import-export', label: 'Import / Export', icon: <FileJson size={18} />, action: () => setShowImportExport(true) },
     { id: 'summary', label: 'View Summary', icon: <FileText size={18} />, action: () => setShowSummary(true) },
     { id: 'about', label: 'About & Trademark Notice', icon: <Info size={18} />, action: () => setShowAbout(true) },
     { id: 'help', label: 'Help', icon: <HelpCircle size={18} />, shortcut: '?', action: () => setShowHelp(true) },
     { id: 'data-sources', label: 'Data Sources', icon: <Database size={18} />, action: () => setShowDataSources(true) },
     { id: 'theme', label: 'Switch Theme', icon: <Palette size={18} />, action: cycleTheme },
-  ], [openGallery, openDesigner, openLearn, cycleTheme]);
+  ], [openGallery, openDesigner, openLearn, openAnalysis, cycleTheme]);
 
   // Full-page views
   if (route.page === 'designer') {
@@ -185,6 +188,9 @@ function App() {
   }
   if (route.page === 'learn') {
     return <LearnPage route={route} />;
+  }
+  if (route.page === 'analysis') {
+    return <ProjectAnalyzer />;
   }
 
   return (
@@ -197,6 +203,7 @@ function App() {
         onGalleryClick={openGallery}
         onDesignerClick={openDesigner}
         onLearnClick={openLearn}
+        onAnalysisClick={openAnalysis}
         onNLBuilderClick={AI_BUILDER_ENABLED ? () => setShowNLBuilder(true) : undefined}
         onSummaryClick={() => setShowSummary(true)}
       />
