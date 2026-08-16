@@ -96,8 +96,10 @@ NL2Ontology capability.
 A generic product-analysis workspace (`/#/analysis`) for mapping repositories,
 capabilities, features, mapped files, dependencies, MVP disposition, and release
 timing. The screen starts from a local JSON import so private product maps can
-stay outside this public repository. The included sample is fictional and exists
-only to demonstrate the workflow.
+stay outside this public repository. File references can carry local status
+labels such as mapped, existing, planned, orphan, and needs review, and features
+can include roadmap signals from local planning docs. The included sample is
+fictional and exists only to demonstrate the workflow.
 
 ### Command Palette & Keyboard Shortcuts
 

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ProjectAnalyzer } from './ProjectAnalyzer';
@@ -28,6 +28,14 @@ const privateFeatureFileMap = {
     },
   ],
   releases: [{ id: 'mvp', name: 'MVP', horizon: 'Now' }],
+  roadmapSources: [
+    {
+      source: 'docs/roadmap/PRODUCT-ROADMAP.md',
+      status: 'in-progress',
+      phase: 'Phase 1',
+      summary: 'Campaign planning remains part of the active product direction.',
+    },
+  ],
   features: [
     {
       id: 'briefs',
@@ -40,6 +48,18 @@ const privateFeatureFileMap = {
       rationale: 'Core content planning value.',
       appFiles: ['app/campaigns/[id]/brief.tsx'],
       qaEvidenceFiles: ['docs/WORKING-TEST-SHEET.md'],
+      fileStatuses: {
+        'app/campaigns/[id]/brief.tsx': 'existing',
+        'docs/WORKING-TEST-SHEET.md': 'needs-review',
+      },
+      roadmapSignals: [
+        {
+          source: 'docs/roadmap/PRODUCT-ROADMAP.md',
+          status: 'in-progress',
+          phase: 'Phase 1',
+          summary: 'Campaign planning remains part of the active product direction.',
+        },
+      ],
       mvpNotes: ['Keep the app-led flow.'],
     },
   ],
@@ -82,6 +102,42 @@ describe('ProjectAnalyzer', () => {
     expect(screen.getByText('Briefs')).toBeInTheDocument();
     expect(screen.getByText('app/campaigns/[id]/brief.tsx')).toBeInTheDocument();
     expect(screen.getByText('docs/WORKING-TEST-SHEET.md')).toBeInTheDocument();
+    expect(screen.getAllByText('Existing')).toHaveLength(2);
+    expect(screen.getAllByText('Needs review')).toHaveLength(2);
+  });
+
+  it('shows imported roadmap signals on the roadmap view', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.upload(
+      screen.getByLabelText('Import project-analysis JSON'),
+      new File([JSON.stringify(privateFeatureFileMap)], 'private-map.json', { type: 'application/json' }),
+    );
+    await screen.findByRole('heading', { name: 'Private Map' });
+    await user.click(screen.getByRole('tab', { name: /Roadmap/i }));
+
+    expect(screen.getByText('Roadmap Sources')).toBeInTheDocument();
+    expect(screen.getAllByText('In progress')).toHaveLength(2);
+    expect(screen.getByText('Phase 1')).toBeInTheDocument();
+    expect(screen.getByText('docs/roadmap/PRODUCT-ROADMAP.md')).toBeInTheDocument();
+  });
+
+  it('opens feature details in a dialog instead of expanding the card inline', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.click(screen.getByRole('button', { name: 'Load sample' }));
+    await user.click(screen.getAllByRole('button', { name: 'Show details' })[0]);
+
+    const dialog = screen.getByRole('dialog', { name: 'Brief Builder' });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText('Decision')).toBeInTheDocument();
+    expect(within(dialog).getByText('Core planning surface with a direct path to user value.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Close details' }));
+
+    expect(screen.queryByRole('dialog', { name: 'Brief Builder' })).not.toBeInTheDocument();
   });
 
   it('filters sample features by release', async () => {

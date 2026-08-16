@@ -12,12 +12,18 @@ import {
   Network,
   ShieldCheck,
   Upload,
+  X,
 } from 'lucide-react';
 import {
   dispositionColors,
   dispositionLabels,
+  fileStatusColors,
+  fileStatusLabels,
   projectAnalysisFromJson,
+  roadmapStatusColor,
+  roadmapStatusLabel,
   sampleProjectAnalysis,
+  type FileReferenceStatus,
   type FeatureDisposition,
   type ProductFeature,
   type ProjectAnalysisModel,
@@ -45,14 +51,22 @@ function featureFileCount(feature: ProductFeature): number {
   ].reduce((count, files) => count + (files?.length ?? 0), 0);
 }
 
-function allFeatureFiles(feature: ProductFeature): { label: string; files: string[] }[] {
+interface FeatureFileReference {
+  path: string;
+  status: FileReferenceStatus;
+}
+
+function allFeatureFiles(feature: ProductFeature): { label: string; files: FeatureFileReference[] }[] {
   return [
     { label: 'App', files: feature.appFiles ?? [] },
     { label: 'Plugin', files: feature.pluginFiles ?? [] },
     { label: 'Playground', files: feature.playgroundFiles ?? [] },
     { label: 'Private data', files: feature.privateDataFiles ?? [] },
     { label: 'QA evidence', files: feature.qaEvidenceFiles ?? [] },
-  ].filter((group) => group.files.length > 0);
+  ].map((group) => ({
+    label: group.label,
+    files: group.files.map((path) => ({ path, status: feature.fileStatuses?.[path] ?? 'mapped' })),
+  })).filter((group) => group.files.length > 0);
 }
 
 function emptyModelCopy(model: ProjectAnalysisModel): ProjectAnalysisModel {
@@ -87,6 +101,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
   const [dispositionFilter, setDispositionFilter] = useState<typeof all | FeatureDisposition>(all);
   const [releaseFilter, setReleaseFilter] = useState(all);
   const [importError, setImportError] = useState<string | null>(null);
+  const [expandedFeatureId, setExpandedFeatureId] = useState<string | null>(null);
 
   const workingModel = activeModel;
 
@@ -106,6 +121,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     () => new Map(workingModel?.features.map((feature) => [feature.id, feature]) ?? []),
     [workingModel],
   );
+  const selectedFeature = expandedFeatureId ? featureById.get(expandedFeatureId) ?? null : null;
 
   const filteredFeatures = useMemo(() => {
     if (!workingModel) return [];
@@ -127,6 +143,14 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     (feature) => feature.releaseId === 'mvp' && !['remove', 'remove-later'].includes(feature.disposition),
   ).length;
   const privateRepoCount = (workingModel?.repositories ?? []).filter((repo) => repo.visibility !== 'public').length;
+  const fileStatusCounts = (workingModel?.features ?? []).reduce<Record<FileReferenceStatus, number>>((counts, feature) => {
+    for (const group of allFeatureFiles(feature)) {
+      for (const file of group.files) {
+        counts[file.status] += 1;
+      }
+    }
+    return counts;
+  }, { mapped: 0, existing: 0, planned: 0, orphan: 0, 'needs-review': 0 });
 
   const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -140,6 +164,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       setRepositoryFilter(all);
       setDispositionFilter(all);
       setReleaseFilter(all);
+      setExpandedFeatureId(null);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : 'Unable to import that JSON file.');
     } finally {
@@ -151,6 +176,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     setActiveModel(emptyModelCopy({ ...sampleProjectAnalysis, sourceLabel: 'Fictional sample' }));
     setImportError(null);
     setView('features');
+    setExpandedFeatureId(null);
   };
 
   const clearMap = () => {
@@ -159,6 +185,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     setRepositoryFilter(all);
     setDispositionFilter(all);
     setReleaseFilter(all);
+    setExpandedFeatureId(null);
   };
 
   if (!workingModel) {
@@ -293,9 +320,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       {view === 'features' && (
         <main className="analysis-grid" aria-label="Feature analysis">
           {filteredFeatures.map((feature) => {
-            const capability = capabilityById.get(feature.capabilityId);
             const release = releaseById.get(feature.releaseId);
-            const score = scoreFeature(feature.value, feature.effort, feature.risk);
             return (
               <article className="analysis-feature-card" key={feature.id}>
                 <div className="analysis-feature-topline">
@@ -315,18 +340,14 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
                   ))}
                   <span className="analysis-chip">{featureFileCount(feature)} files</span>
                 </div>
-                <dl className="analysis-metrics">
-                  <div><dt>Value</dt><dd>{feature.value}</dd></div>
-                  <div><dt>Effort</dt><dd>{feature.effort}</dd></div>
-                  <div><dt>Risk</dt><dd>{feature.risk}</dd></div>
-                  <div><dt>Score</dt><dd>{score}</dd></div>
-                </dl>
-                {capability && <span className="analysis-capability">{capability.name}</span>}
-                {feature.mvpNotes && feature.mvpNotes.length > 0 && (
-                  <ul className="analysis-note-list">
-                    {feature.mvpNotes.slice(0, 3).map((note) => <li key={note}>{note}</li>)}
-                  </ul>
-                )}
+                <button
+                  className="analysis-card-toggle"
+                  type="button"
+                  aria-haspopup="dialog"
+                  onClick={() => setExpandedFeatureId(feature.id)}
+                >
+                  Show details
+                </button>
               </article>
             );
           })}
@@ -334,31 +355,51 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       )}
 
       {view === 'files' && (
-        <main className="analysis-file-map" aria-label="Feature file map">
-          {filteredFeatures.map((feature) => (
-            <article className="analysis-file-card" key={feature.id}>
-              <header>
-                <span
-                  className="analysis-disposition"
-                  style={{ borderColor: dispositionColors[feature.disposition], color: dispositionColors[feature.disposition] }}
-                >
-                  {dispositionLabels[feature.disposition]}
-                </span>
-                <h2>{feature.name}</h2>
-                <span>{featureFileCount(feature)} mapped references</span>
-              </header>
-              <div className="analysis-file-groups">
-                {allFeatureFiles(feature).map((group) => (
-                  <section className="analysis-file-group" key={group.label}>
-                    <h3>{group.label}</h3>
-                    <ul>
-                      {group.files.map((file) => <li key={`${group.label}-${file}`}><code>{file}</code></li>)}
-                    </ul>
-                  </section>
-                ))}
-              </div>
-            </article>
-          ))}
+        <main aria-label="Feature file map">
+          <section className="analysis-status-strip" aria-label="File status counts">
+            {Object.entries(fileStatusLabels).map(([status, label]) => (
+              <span key={status} style={{ borderColor: fileStatusColors[status as FileReferenceStatus] }}>
+                <strong>{fileStatusCounts[status as FileReferenceStatus]}</strong>
+                {label}
+              </span>
+            ))}
+          </section>
+          <section className="analysis-file-map">
+            {filteredFeatures.map((feature) => (
+              <article className="analysis-file-card" key={feature.id}>
+                <header>
+                  <span
+                    className="analysis-disposition"
+                    style={{ borderColor: dispositionColors[feature.disposition], color: dispositionColors[feature.disposition] }}
+                  >
+                    {dispositionLabels[feature.disposition]}
+                  </span>
+                  <h2>{feature.name}</h2>
+                  <span>{featureFileCount(feature)} mapped references</span>
+                </header>
+                <div className="analysis-file-groups">
+                  {allFeatureFiles(feature).map((group) => (
+                    <section className="analysis-file-group" key={group.label}>
+                      <h3>{group.label}</h3>
+                      <ul>
+                        {group.files.map((file) => (
+                          <li key={`${group.label}-${file.path}`}>
+                            <code>{file.path}</code>
+                            <span
+                              className="analysis-file-status"
+                              style={{ borderColor: fileStatusColors[file.status], color: fileStatusColors[file.status] }}
+                            >
+                              {fileStatusLabels[file.status]}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </section>
         </main>
       )}
 
@@ -421,6 +462,21 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
                       <div>
                         <strong>{feature.name}</strong>
                         <span>{dispositionLabels[feature.disposition]} - {featureFileCount(feature)} files</span>
+                        {feature.roadmapSignals && feature.roadmapSignals.length > 0 && (
+                          <ul className="analysis-roadmap-signals">
+                            {feature.roadmapSignals.slice(0, 2).map((signal) => (
+                              <li key={`${feature.id}-${signal.source}-${signal.summary}`}>
+                                <span
+                                  className="analysis-roadmap-status"
+                                  style={{ borderColor: roadmapStatusColor(signal.status), color: roadmapStatusColor(signal.status) }}
+                                >
+                                  {roadmapStatusLabel(signal.status)}
+                                </span>
+                                <span>{signal.phase || signal.target || signal.source}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -428,15 +484,116 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
               );
             })}
           </section>
-          {workingModel.openQuestions && workingModel.openQuestions.length > 0 && (
-            <aside className="analysis-decision-panel">
+          {Boolean(workingModel.roadmapSources?.length || workingModel.openQuestions?.length) && (
+            <aside className="analysis-decision-panel analysis-roadmap-context">
+              {workingModel.roadmapSources && workingModel.roadmapSources.length > 0 && (
+                <>
+                  <h2>Roadmap Sources</h2>
+                  <ul>
+                    {workingModel.roadmapSources.map((source) => (
+                      <li key={`${source.source}-${source.summary}`}>
+                        <strong>{source.source}</strong>
+                        <span
+                          style={{ color: roadmapStatusColor(source.status) }}
+                        >
+                          {roadmapStatusLabel(source.status)}
+                        </span>
+                        <p>{source.summary}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {workingModel.openQuestions && workingModel.openQuestions.length > 0 && (
+                <>
               <h2>Open Questions</h2>
               <ul>
                 {workingModel.openQuestions.map((question) => <li key={question}>{question}</li>)}
               </ul>
+                </>
+              )}
             </aside>
           )}
         </main>
+      )}
+
+      {selectedFeature && (
+        <div className="analysis-modal-backdrop" role="presentation" onClick={() => setExpandedFeatureId(null)}>
+          <section
+            className="analysis-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="analysis-detail-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header>
+              <div>
+                <span
+                  className="analysis-disposition"
+                  style={{ borderColor: dispositionColors[selectedFeature.disposition], color: dispositionColors[selectedFeature.disposition] }}
+                >
+                  {dispositionLabels[selectedFeature.disposition]}
+                </span>
+                <h2 id="analysis-detail-title">{selectedFeature.name}</h2>
+              </div>
+              <button className="analysis-modal-close" type="button" aria-label="Close details" onClick={() => setExpandedFeatureId(null)}>
+                <X size={18} />
+              </button>
+            </header>
+
+            <div className="analysis-detail-body">
+              <section>
+                <h3>Decision</h3>
+                <p>{selectedFeature.rationale}</p>
+                <div className="analysis-chip-row">
+                  {selectedFeature.repositoryIds.map((repoId) => (
+                    <span className="analysis-chip" key={repoId}>{repositoryById.get(repoId)?.name ?? repoId}</span>
+                  ))}
+                  {capabilityById.get(selectedFeature.capabilityId) && (
+                    <span className="analysis-capability">{capabilityById.get(selectedFeature.capabilityId)?.name}</span>
+                  )}
+                  <span className="analysis-chip">{releaseById.get(selectedFeature.releaseId)?.name ?? selectedFeature.releaseId}</span>
+                </div>
+              </section>
+
+              <dl className="analysis-metrics">
+                <div><dt>Value</dt><dd>{selectedFeature.value}</dd></div>
+                <div><dt>Effort</dt><dd>{selectedFeature.effort}</dd></div>
+                <div><dt>Risk</dt><dd>{selectedFeature.risk}</dd></div>
+                <div><dt>Score</dt><dd>{scoreFeature(selectedFeature.value, selectedFeature.effort, selectedFeature.risk)}</dd></div>
+              </dl>
+
+              {selectedFeature.mvpNotes && selectedFeature.mvpNotes.length > 0 && (
+                <section>
+                  <h3>MVP Notes</h3>
+                  <ul className="analysis-note-list">
+                    {selectedFeature.mvpNotes.map((note) => <li key={note}>{note}</li>)}
+                  </ul>
+                </section>
+              )}
+
+              {selectedFeature.roadmapSignals && selectedFeature.roadmapSignals.length > 0 && (
+                <section>
+                  <h3>Roadmap Signals</h3>
+                  <ul className="analysis-modal-roadmap-list">
+                    {selectedFeature.roadmapSignals.map((signal) => (
+                      <li key={`${signal.source}-${signal.summary}`}>
+                        <span
+                          className="analysis-roadmap-status"
+                          style={{ borderColor: roadmapStatusColor(signal.status), color: roadmapStatusColor(signal.status) }}
+                        >
+                          {roadmapStatusLabel(signal.status)}
+                        </span>
+                        <strong>{signal.phase || signal.target || signal.source}</strong>
+                        <p>{signal.summary}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );

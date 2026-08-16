@@ -3,6 +3,8 @@ export type RepositoryType = 'web-app' | 'service' | 'plugin' | 'package' | 'doc
 export type FeatureDisposition = 'keep' | 'simplify' | 'hide' | 'gate' | 'consolidate' | 'defer' | 'remove' | 'remove-later' | 'new';
 export type ComponentKind = 'screen' | 'api' | 'service' | 'job' | 'schema' | 'integration' | 'document';
 export type DependencyType = 'requires' | 'feeds' | 'blocks' | 'duplicates' | 'replaces';
+export type FileReferenceStatus = 'mapped' | 'existing' | 'planned' | 'orphan' | 'needs-review';
+export type RoadmapSignalStatus = 'shipped' | 'in-progress' | 'planned' | 'concept' | 'needs-review';
 
 export interface ProjectRepository {
   id: string;
@@ -46,8 +48,18 @@ export interface ProductFeature {
   playgroundFiles?: string[];
   privateDataFiles?: string[];
   qaEvidenceFiles?: string[];
+  fileStatuses?: Record<string, FileReferenceStatus>;
+  roadmapSignals?: RoadmapSignal[];
   mvpNotes?: string[];
   dependencyIds?: string[];
+}
+
+export interface RoadmapSignal {
+  source: string;
+  status: RoadmapSignalStatus | string;
+  summary: string;
+  phase?: string;
+  target?: string;
 }
 
 export interface CodeComponentReference {
@@ -80,6 +92,7 @@ export interface ProjectAnalysisModel {
   sourceLabel?: string;
   scopePurpose?: string;
   privacyBoundary?: string;
+  roadmapSources?: RoadmapSignal[];
   doNotCutBeforeChecks?: string[];
   openQuestions?: string[];
   firstSlimmingCandidates?: { featureId: string; suggestedAction: string; why: string }[];
@@ -108,6 +121,48 @@ export const dispositionColors: Record<FeatureDisposition, string> = {
   'remove-later': '#D13438',
   new: '#008272',
 };
+
+export const fileStatusLabels: Record<FileReferenceStatus, string> = {
+  mapped: 'Mapped',
+  existing: 'Existing',
+  planned: 'Planned',
+  orphan: 'Orphan',
+  'needs-review': 'Needs review',
+};
+
+export const fileStatusColors: Record<FileReferenceStatus, string> = {
+  mapped: '#0078D4',
+  existing: '#107C10',
+  planned: '#8764B8',
+  orphan: '#D83B01',
+  'needs-review': '#C19C00',
+};
+
+export const roadmapStatusLabels: Record<RoadmapSignalStatus, string> = {
+  shipped: 'Shipped',
+  'in-progress': 'In progress',
+  planned: 'Planned',
+  concept: 'Concept',
+  'needs-review': 'Needs review',
+};
+
+export const roadmapStatusColors: Record<RoadmapSignalStatus, string> = {
+  shipped: '#107C10',
+  'in-progress': '#0078D4',
+  planned: '#8764B8',
+  concept: '#008272',
+  'needs-review': '#C19C00',
+};
+
+export function roadmapStatusLabel(status: string): string {
+  if (status in roadmapStatusLabels) return roadmapStatusLabels[status as RoadmapSignalStatus];
+  return status;
+}
+
+export function roadmapStatusColor(status: string): string {
+  if (status in roadmapStatusColors) return roadmapStatusColors[status as RoadmapSignalStatus];
+  return '#0078D4';
+}
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -145,6 +200,40 @@ function normalizeVisibility(value: unknown): RepositoryVisibility {
   return 'private';
 }
 
+function normalizeFileStatus(value: unknown): FileReferenceStatus {
+  const raw = stringValue(value, 'mapped');
+  if (raw === 'future') return 'planned';
+  if (raw in fileStatusLabels) return raw as FileReferenceStatus;
+  return 'mapped';
+}
+
+function mapFileStatuses(featureStatuses: unknown, globalStatuses: UnknownRecord): Record<string, FileReferenceStatus> | undefined {
+  const merged: Record<string, FileReferenceStatus> = {};
+
+  for (const [path, status] of Object.entries(globalStatuses)) {
+    merged[path] = normalizeFileStatus(status);
+  }
+
+  if (isRecord(featureStatuses)) {
+    for (const [path, status] of Object.entries(featureStatuses)) {
+      merged[path] = normalizeFileStatus(status);
+    }
+  }
+
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+function mapRoadmapSignals(value: unknown): RoadmapSignal[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((signal) => ({
+    source: stringValue(signal.source),
+    status: stringValue(signal.status, 'needs-review'),
+    summary: stringValue(signal.summary),
+    phase: stringValue(signal.phase),
+    target: stringValue(signal.target),
+  })).filter((signal) => signal.source && signal.summary);
+}
+
 function mapFileMapRepositories(value: unknown): ProjectRepository[] {
   if (!Array.isArray(value)) return [];
   return value.filter(isRecord).map((repo) => ({
@@ -179,7 +268,7 @@ function mapFileMapReleases(value: unknown): ReleaseTarget[] {
   })).filter((release) => release.id);
 }
 
-function mapFileMapFeatures(value: unknown): ProductFeature[] {
+function mapFileMapFeatures(value: unknown, globalFileStatuses: UnknownRecord = {}): ProductFeature[] {
   if (!Array.isArray(value)) return [];
   return value.filter(isRecord).map((feature) => {
     const disposition = normalizeDisposition(feature.mvpAction ?? feature.disposition);
@@ -200,6 +289,8 @@ function mapFileMapFeatures(value: unknown): ProductFeature[] {
       playgroundFiles: stringArray(feature.playgroundFiles),
       privateDataFiles: stringArray(feature.privateDataFiles),
       qaEvidenceFiles: stringArray(feature.qaEvidenceFiles),
+      fileStatuses: mapFileStatuses(feature.fileStatuses, globalFileStatuses),
+      roadmapSignals: mapRoadmapSignals(feature.roadmapSignals),
       mvpNotes: stringArray(feature.mvpNotes),
       dependencyIds: stringArray(feature.dependencies),
     };
@@ -233,6 +324,7 @@ export function projectAnalysisFromJson(value: unknown, sourceLabel = 'Imported 
 
   if (value.schemaVersion === 'project-analysis.feature-file-map.v1') {
     const scope = isRecord(value.scope) ? value.scope : {};
+    const globalFileStatuses = isRecord(value.fileStatuses) ? value.fileStatuses : {};
     const model: ProjectAnalysisModel = {
       schemaVersion: stringValue(value.schemaVersion),
       projectName: stringValue(value.projectName, 'Imported Project'),
@@ -240,12 +332,13 @@ export function projectAnalysisFromJson(value: unknown, sourceLabel = 'Imported 
       repositories: mapFileMapRepositories(value.repositories),
       capabilities: mapFileMapCapabilities(value.capabilities),
       releases: mapFileMapReleases(value.releases),
-      features: mapFileMapFeatures(value.features),
+      features: mapFileMapFeatures(value.features, globalFileStatuses),
       components: [],
       dependencies: mapFileMapDependencies(value.dependencyGraph),
       sourceLabel,
       scopePurpose: stringValue(scope.purpose),
       privacyBoundary: stringValue(scope.privacyBoundary),
+      roadmapSources: mapRoadmapSignals(value.roadmapSources),
       doNotCutBeforeChecks: stringArray(value.doNotCutBeforeChecks),
       openQuestions: stringArray(value.openQuestionsForReview),
       firstSlimmingCandidates: mapSlimmingCandidates(value.firstSlimmingCandidates),

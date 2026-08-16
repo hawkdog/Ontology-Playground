@@ -10,9 +10,10 @@
 
 - [x] Add a generic project-analysis workspace with fictional sample data.
 - [x] Add local import for private project-analysis JSON files.
+- [x] Add file status labels for mapped, existing, planned, orphaned, and needs-review file mappings.
+- [x] Display imported roadmap-doc signals for feature and release visualization.
 - [ ] Add local export for project-analysis JSON files.
-- [ ] Add file status fields for existing, future, and orphaned file mappings.
-- [ ] Add roadmap-doc ingestion for feature and release visualization.
+- [ ] Add automated roadmap-doc ingestion for feature and release visualization.
 - [ ] Add ontology/RDF export for project-analysis models.
 
 ---

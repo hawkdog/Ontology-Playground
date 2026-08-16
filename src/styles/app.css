@@ -3987,11 +3987,14 @@ body {
 
 /* Project Analyzer */
 .analysis-page {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
   background: var(--bg-primary);
   color: var(--text-primary);
   overflow-y: auto;
-  padding: 28px;
+  padding: 22px 28px 32px;
+  scrollbar-gutter: stable;
 }
 
 .analysis-header {
@@ -4130,8 +4133,8 @@ body {
 .analysis-feature-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 14px;
 }
 
 .analysis-feature-topline {
@@ -4154,8 +4157,15 @@ body {
 }
 
 .analysis-feature-card h2 {
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.25;
+}
+
+.analysis-feature-card > p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .analysis-feature-card p,
@@ -4174,6 +4184,7 @@ body {
 .analysis-chip,
 .analysis-capability {
   display: inline-flex;
+  align-items: center;
   width: fit-content;
   padding: 4px 8px;
   background: var(--bg-tertiary);
@@ -4181,6 +4192,123 @@ body {
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+.analysis-card-toggle {
+  width: fit-content;
+  min-height: 32px;
+  padding: 0 12px;
+  color: var(--on-accent);
+  background: var(--ms-blue);
+  border: 1px solid var(--ms-blue);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(0, 120, 212, 0.18);
+}
+
+.analysis-card-toggle:hover {
+  background: var(--ms-blue-dark);
+  border-color: var(--ms-blue-dark);
+}
+
+.analysis-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2600;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.analysis-detail-modal {
+  width: min(760px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.analysis-detail-modal header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.analysis-detail-modal h2 {
+  margin-top: 10px;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.analysis-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.analysis-modal-close:hover {
+  color: var(--text-primary);
+  border-color: var(--ms-blue);
+}
+
+.analysis-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+  padding: 18px 20px 20px;
+}
+
+.analysis-detail-body h3 {
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.analysis-detail-body p {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.analysis-modal-roadmap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.analysis-modal-roadmap-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.analysis-modal-roadmap-list strong {
+  font-size: 13px;
 }
 
 .analysis-metrics {
@@ -4286,7 +4414,38 @@ body {
   font-size: 12px;
 }
 
+.analysis-roadmap-signals {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.analysis-roadmap-signals li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.analysis-roadmap-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .analysis-page--empty {
+  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
 }
@@ -4433,11 +4592,36 @@ body {
   gap: 14px;
 }
 
+.analysis-status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.analysis-status-strip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 10px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.analysis-status-strip strong {
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
 .analysis-file-card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px;
+  gap: 12px;
+  padding: 14px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -4451,13 +4635,16 @@ body {
 }
 
 .analysis-file-card h2 {
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.25;
 }
 
 .analysis-file-groups {
   display: grid;
   gap: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .analysis-file-group {
@@ -4484,12 +4671,31 @@ body {
   list-style: none;
 }
 
+.analysis-file-group li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
 .analysis-file-group code {
   display: block;
   overflow-wrap: anywhere;
   color: var(--text-primary);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.analysis-file-status {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .analysis-dependency-layout,
@@ -4541,6 +4747,11 @@ body {
   color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.analysis-roadmap-context {
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
 }
 
 @media (max-width: 900px) {
