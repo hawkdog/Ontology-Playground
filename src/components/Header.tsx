@@ -4,7 +4,7 @@ import { useRoute } from '../hooks/useRoute';
 import { routeToHash } from '../lib/router';
 import { encodeSharePayload } from '../lib/shareCodec';
 import { serializeToRDF } from '../lib/rdf/serializer';
-import { Palette, Check, Database, Trophy, HelpCircle, FileJson, LayoutGrid, Sparkles, FileText, Share2, PenTool, BookOpen, Menu, X, Download, Info, Network } from 'lucide-react';
+import { Palette, Check, Database, Trophy, HelpCircle, FileJson, LayoutGrid, Sparkles, FileText, Share2, PenTool, BookOpen, Menu, X, Download, Info, Network, ClipboardCheck, Map } from 'lucide-react';
 
 interface HeaderProps {
   onAboutClick: () => void;
@@ -15,11 +15,13 @@ interface HeaderProps {
   onDesignerClick: () => void;
   onLearnClick: () => void;
   onAnalysisClick: () => void;
+  onQAClick: () => void;
+  onRoadmapClick: () => void;
   onNLBuilderClick?: () => void;
   onSummaryClick: () => void;
 }
 
-export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImportExportClick, onGalleryClick, onDesignerClick, onLearnClick, onAnalysisClick, onNLBuilderClick, onSummaryClick }: HeaderProps) {
+export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImportExportClick, onGalleryClick, onDesignerClick, onLearnClick, onAnalysisClick, onQAClick, onRoadmapClick, onNLBuilderClick, onSummaryClick }: HeaderProps) {
   const { theme, setTheme, totalPoints, earnedBadges, currentOntology, dataBindings } = useAppStore();
   const route = useRoute();
   const [shareStatus, setShareStatus] = useState<'idle' | 'copying' | 'copied' | 'downloaded'>('idle');
@@ -160,6 +162,12 @@ export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImport
         <button className="icon-btn" onClick={onAnalysisClick} data-tooltip="Project Analyzer" aria-label="Project Analyzer">
           <Network size={20} />
         </button>
+        <button className="icon-btn" onClick={onQAClick} data-tooltip="QA Dashboard" aria-label="QA Dashboard">
+          <ClipboardCheck size={20} />
+        </button>
+        <button className="icon-btn" onClick={onRoadmapClick} data-tooltip="Roadmap Dashboard" aria-label="Roadmap Dashboard">
+          <Map size={20} />
+        </button>
         <button className="icon-btn" onClick={onImportExportClick} data-tooltip="Import / Export" aria-label="Import / Export">
           <FileJson size={20} />
         </button>
@@ -241,6 +249,12 @@ export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImport
             </button>
             <button className="mobile-menu-item" onClick={menuAction(onAnalysisClick)}>
               <Network size={18} /> Project Analyzer
+            </button>
+            <button className="mobile-menu-item" onClick={menuAction(onQAClick)}>
+              <ClipboardCheck size={18} /> QA Dashboard
+            </button>
+            <button className="mobile-menu-item" onClick={menuAction(onRoadmapClick)}>
+              <Map size={18} /> Roadmap Dashboard
             </button>
             <button className="mobile-menu-item" onClick={menuAction(onImportExportClick)}>
               <FileJson size={18} /> Import / Export

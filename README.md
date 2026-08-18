@@ -98,8 +98,28 @@ capabilities, features, mapped files, dependencies, MVP disposition, and release
 timing. The screen starts from a local JSON import so private product maps can
 stay outside this public repository. File references can carry local status
 labels such as mapped, existing, planned, orphan, and needs review, and features
-can include roadmap signals from local planning docs. The included sample is
-fictional and exists only to demonstrate the workflow.
+can include roadmap signals from local planning docs. Local deployments can
+also connect to a private Project Analyzer API for Load DB / Save DB workflows.
+The included sample is fictional and exists only to demonstrate the workflow.
+
+### QA Dashboard
+
+A dedicated QA tracking screen (`/#/qa`) for testing queues, defects, blockers,
+manual notes, mapped files, roadmap sources, and evidence attachments such as
+screenshots or local image paths. QA items can be linked to features and files
+while carrying tracker-style fields such as test ID, track, area, mode/tier,
+result, next action, MVP blocker, Stripe blocker, automation coverage, source
+document, and source section. Browser-session entries can be added from the
+dashboard and saved back to a private local database or exported as JSON.
+
+### Roadmap Dashboard
+
+A dedicated roadmap intake screen (`/#/roadmap`) for reviewing roadmap docs,
+planned work, deferred ideas, and active feature candidates before they become
+implementation work. Roadmap items can stay lightweight with source document,
+source section, phase, target, priority, repository, feature, and mapped-file
+fields. When an item is ready, the dashboard can promote it into an active
+feature while preserving the roadmap source link for later QA and file mapping.
 
 ### Command Palette & Keyboard Shortcuts
 
@@ -132,6 +152,8 @@ Client-side hash routing with shareable URLs for every page:
 | `/#/designer` | Visual designer |
 | `/#/designer/<source>/<slug>` | Designer with catalogue ontology (e.g. `/#/designer/official/cosmic-coffee`) |
 | `/#/analysis` | Project Analyzer |
+| `/#/qa` | QA Dashboard |
+| `/#/roadmap` | Roadmap Dashboard |
 | `/#/learn` | Ontology School — course catalogue |
 | `/#/learn/<course>` | Course detail — article list |
 | `/#/learn/<course>/<article>` | Article view (with presentation mode) |
@@ -223,6 +245,7 @@ GitHub Pages build so asset paths resolve correctly.
 | `VITE_BASE_PATH` | `/` | Base path for the app (set automatically for GitHub Pages) |
 | `VITE_GITHUB_CLIENT_ID` | *(empty)* | GitHub OAuth App client ID for one-click catalogue PRs ([setup guide](docs/github-oauth-setup.md)) |
 | `VITE_GITHUB_OAUTH_BASE` | *(empty)* | External OAuth proxy URL for GitHub Pages deployments (e.g. Cloudflare Worker URL) |
+| `VITE_PROJECT_ANALYSIS_API_URL` | `http://localhost:3008` | Optional private Project Analyzer API used by the local Load DB / Save DB controls |
 
 ## Project Structure
 

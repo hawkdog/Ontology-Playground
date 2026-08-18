@@ -10,6 +10,8 @@
  *   /#/designer                                       → new blank ontology
  *   /#/designer/<source>/<slug>                       → edit existing ontology
  *   /#/analysis                                       → project analysis workspace
+ *   /#/qa                                             → project QA dashboard
+ *   /#/roadmap                                        → project roadmap dashboard
  *   /#/learn                                          → course catalogue
  *   /#/learn/<course>                                 → course detail page
  *   /#/learn/<course>/<article>                       → article within a course
@@ -22,6 +24,8 @@ export type Route =
   | { page: 'embed'; ontologyId: string }
   | { page: 'designer'; ontologyId?: string }
   | { page: 'analysis' }
+  | { page: 'qa' }
+  | { page: 'roadmap' }
   | { page: 'learn'; courseSlug?: string; articleSlug?: string }
   | { page: 'share'; data: string };
 
@@ -93,6 +97,12 @@ export function parseHash(hash: string): Route {
   if (segments[0] === 'analysis') {
     return { page: 'analysis' };
   }
+  if (segments[0] === 'qa') {
+    return { page: 'qa' };
+  }
+  if (segments[0] === 'roadmap') {
+    return { page: 'roadmap' };
+  }
   if (segments[0] === 'learn') {
     if (segments.length === 1) return { page: 'learn' };
     const courseSlug = sanitizeOntologyId(segments[1]);
@@ -133,6 +143,10 @@ export function routeToHash(route: Route): string {
         : '#/designer';
     case 'analysis':
       return '#/analysis';
+    case 'qa':
+      return '#/qa';
+    case 'roadmap':
+      return '#/roadmap';
     case 'learn':
       if (route.courseSlug && route.articleSlug)
         return `#/learn/${route.courseSlug}/${route.articleSlug}`;

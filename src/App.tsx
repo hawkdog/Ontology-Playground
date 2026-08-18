@@ -18,6 +18,8 @@ import {
   OntologyDesigner,
   LearnPage,
   ProjectAnalyzer,
+  ProjectQADashboard,
+  ProjectRoadmapDashboard,
   Toast,
   CommandPalette,
   GuidedTour,
@@ -33,7 +35,7 @@ import { useRoute } from './hooks/useRoute';
 import { navigate } from './lib/router';
 import { decodeSharePayload } from './lib/shareCodec';
 import type { Catalogue } from './types/catalogue';
-import { Search, MessageSquare, Info, Compass, LayoutGrid, PenTool, BookOpen, FileJson, HelpCircle, Database, Palette, FileText, Network } from 'lucide-react';
+import { Search, MessageSquare, Info, Compass, LayoutGrid, PenTool, BookOpen, FileJson, HelpCircle, Database, Palette, FileText, Network, ClipboardCheck, Map } from 'lucide-react';
 import './styles/app.css';
 
 const AI_BUILDER_ENABLED = import.meta.env.VITE_ENABLE_AI_BUILDER === 'true';
@@ -134,6 +136,8 @@ function App() {
 
   const openLearn = useCallback(() => navigate({ page: 'learn' }), []);
   const openAnalysis = useCallback(() => navigate({ page: 'analysis' }), []);
+  const openQA = useCallback(() => navigate({ page: 'qa' }), []);
+  const openRoadmap = useCallback(() => navigate({ page: 'roadmap' }), []);
 
   const cycleTheme = useCallback(() => {
     const idx = THEME_OPTIONS.findIndex((t) => t.id === theme);
@@ -174,13 +178,15 @@ function App() {
     { id: 'designer', label: 'Open Designer', icon: <PenTool size={18} />, action: openDesigner },
     { id: 'learn', label: 'Open Ontology School', icon: <BookOpen size={18} />, action: openLearn },
     { id: 'analysis', label: 'Open Project Analyzer', icon: <Network size={18} />, action: openAnalysis },
+    { id: 'qa', label: 'Open QA Dashboard', icon: <ClipboardCheck size={18} />, action: openQA },
+    { id: 'roadmap', label: 'Open Roadmap Dashboard', icon: <Map size={18} />, action: openRoadmap },
     { id: 'import-export', label: 'Import / Export', icon: <FileJson size={18} />, action: () => setShowImportExport(true) },
     { id: 'summary', label: 'View Summary', icon: <FileText size={18} />, action: () => setShowSummary(true) },
     { id: 'about', label: 'About & Trademark Notice', icon: <Info size={18} />, action: () => setShowAbout(true) },
     { id: 'help', label: 'Help', icon: <HelpCircle size={18} />, shortcut: '?', action: () => setShowHelp(true) },
     { id: 'data-sources', label: 'Data Sources', icon: <Database size={18} />, action: () => setShowDataSources(true) },
     { id: 'theme', label: 'Switch Theme', icon: <Palette size={18} />, action: cycleTheme },
-  ], [openGallery, openDesigner, openLearn, openAnalysis, cycleTheme]);
+  ], [openGallery, openDesigner, openLearn, openAnalysis, openQA, openRoadmap, cycleTheme]);
 
   // Full-page views
   if (route.page === 'designer') {
@@ -191,6 +197,12 @@ function App() {
   }
   if (route.page === 'analysis') {
     return <ProjectAnalyzer />;
+  }
+  if (route.page === 'qa') {
+    return <ProjectQADashboard />;
+  }
+  if (route.page === 'roadmap') {
+    return <ProjectRoadmapDashboard />;
   }
 
   return (
@@ -204,6 +216,8 @@ function App() {
         onDesignerClick={openDesigner}
         onLearnClick={openLearn}
         onAnalysisClick={openAnalysis}
+        onQAClick={openQA}
+        onRoadmapClick={openRoadmap}
         onNLBuilderClick={AI_BUILDER_ENABLED ? () => setShowNLBuilder(true) : undefined}
         onSummaryClick={() => setShowSummary(true)}
       />

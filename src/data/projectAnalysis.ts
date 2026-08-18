@@ -4,7 +4,12 @@ export type FeatureDisposition = 'keep' | 'simplify' | 'hide' | 'gate' | 'consol
 export type ComponentKind = 'screen' | 'api' | 'service' | 'job' | 'schema' | 'integration' | 'document';
 export type DependencyType = 'requires' | 'feeds' | 'blocks' | 'duplicates' | 'replaces';
 export type FileReferenceStatus = 'mapped' | 'existing' | 'planned' | 'orphan' | 'needs-review';
-export type RoadmapSignalStatus = 'shipped' | 'in-progress' | 'planned' | 'concept' | 'needs-review';
+export type RoadmapSignalStatus = 'idea' | 'concept' | 'planned' | 'mvp' | 'active' | 'in-progress' | 'built' | 'shipped' | 'needs-review' | 'deferred' | 'cut';
+export type RoadmapItemType = 'roadmap-item' | 'feature-candidate' | 'release' | 'research' | 'integration' | 'technical-debt' | 'qa';
+export type QAItemStatus = 'not-started' | 'ready' | 'in-progress' | 'partial' | 'needs-retest' | 'blocked' | 'failed' | 'passed' | 'deferred' | 'future';
+export type QAItemPriority = 'low' | 'medium' | 'high' | 'critical' | 'support' | 'conditional' | 'future';
+export type QAItemType = 'task' | 'manual-test' | 'automated-test' | 'bug' | 'note' | 'decision' | 'evidence';
+export type QAAttachmentType = 'image' | 'screenshot' | 'document' | 'log' | 'link';
 
 export interface ProjectRepository {
   id: string;
@@ -62,6 +67,82 @@ export interface RoadmapSignal {
   target?: string;
 }
 
+export interface RoadmapItem {
+  id: string;
+  title: string;
+  type: RoadmapItemType;
+  status: RoadmapSignalStatus | string;
+  summary: string;
+  source: string;
+  sourceSection?: string;
+  phase?: string;
+  target?: string;
+  targetReleaseId?: string;
+  priority?: string;
+  capabilityId?: string;
+  disposition?: FeatureDisposition;
+  repositoryIds?: string[];
+  featureIds?: string[];
+  fileRefs?: string[];
+  owner?: string;
+  promotedFeatureId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  notes?: string[];
+}
+
+export interface QANote {
+  id: string;
+  body: string;
+  author?: string;
+  createdAt?: string;
+}
+
+export interface QAAttachment {
+  id: string;
+  label: string;
+  type: QAAttachmentType;
+  path?: string;
+  url?: string;
+  description?: string;
+}
+
+export interface QAItem {
+  id: string;
+  testId?: string;
+  title: string;
+  type: QAItemType;
+  status: QAItemStatus;
+  rawStatus?: string;
+  priority: QAItemPriority;
+  rawPriority?: string;
+  summary: string;
+  featureIds: string[];
+  repositoryIds?: string[];
+  fileRefs?: string[];
+  track?: string;
+  area?: string;
+  modeTier?: string;
+  result?: string;
+  owner?: string;
+  lastTested?: string;
+  nextAction?: string;
+  blocking?: string;
+  mvpBlocker?: string;
+  stripeBlocker?: string;
+  automationCoverage?: string;
+  issueLink?: string;
+  actualResult?: string;
+  sourceDoc?: string;
+  sourceSection?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  due?: string;
+  acceptanceCriteria?: string[];
+  notes?: QANote[];
+  attachments?: QAAttachment[];
+}
+
 export interface CodeComponentReference {
   id: string;
   name: string;
@@ -93,6 +174,8 @@ export interface ProjectAnalysisModel {
   scopePurpose?: string;
   privacyBoundary?: string;
   roadmapSources?: RoadmapSignal[];
+  roadmapItems?: RoadmapItem[];
+  qaItems?: QAItem[];
   doNotCutBeforeChecks?: string[];
   openQuestions?: string[];
   firstSlimmingCandidates?: { featureId: string; suggestedAction: string; why: string }[];
@@ -139,19 +222,77 @@ export const fileStatusColors: Record<FileReferenceStatus, string> = {
 };
 
 export const roadmapStatusLabels: Record<RoadmapSignalStatus, string> = {
-  shipped: 'Shipped',
-  'in-progress': 'In progress',
-  planned: 'Planned',
+  idea: 'Idea',
   concept: 'Concept',
+  planned: 'Planned',
+  mvp: 'MVP',
+  active: 'Active',
+  'in-progress': 'In progress',
+  built: 'Built',
+  shipped: 'Shipped',
   'needs-review': 'Needs review',
+  deferred: 'Deferred',
+  cut: 'Cut',
 };
 
 export const roadmapStatusColors: Record<RoadmapSignalStatus, string> = {
-  shipped: '#107C10',
-  'in-progress': '#0078D4',
-  planned: '#8764B8',
+  idea: '#008272',
   concept: '#008272',
+  planned: '#8764B8',
+  mvp: '#107C10',
+  active: '#0078D4',
+  'in-progress': '#0078D4',
+  built: '#107C10',
+  shipped: '#107C10',
   'needs-review': '#C19C00',
+  deferred: '#8764B8',
+  cut: '#D13438',
+};
+
+export const qaStatusLabels: Record<QAItemStatus, string> = {
+  'not-started': 'Not started',
+  ready: 'Ready',
+  'in-progress': 'In progress',
+  partial: 'Partial',
+  'needs-retest': 'Needs retest',
+  blocked: 'Blocked',
+  failed: 'Failed',
+  passed: 'Passed',
+  deferred: 'Deferred',
+  future: 'Future',
+};
+
+export const qaStatusColors: Record<QAItemStatus, string> = {
+  'not-started': '#605E5C',
+  ready: '#008272',
+  'in-progress': '#0078D4',
+  partial: '#C19C00',
+  'needs-retest': '#C19C00',
+  blocked: '#D83B01',
+  failed: '#D13438',
+  passed: '#107C10',
+  deferred: '#8764B8',
+  future: '#8764B8',
+};
+
+export const qaPriorityLabels: Record<QAItemPriority, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  critical: 'Critical',
+  support: 'Support',
+  conditional: 'Conditional',
+  future: 'Future',
+};
+
+export const qaTypeLabels: Record<QAItemType, string> = {
+  task: 'Task',
+  'manual-test': 'Manual test',
+  'automated-test': 'Automated test',
+  bug: 'Bug',
+  note: 'Note',
+  decision: 'Decision',
+  evidence: 'Evidence',
 };
 
 export function roadmapStatusLabel(status: string): string {
@@ -172,6 +313,20 @@ function isRecord(value: unknown): value is UnknownRecord {
 
 function stringValue(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
+}
+
+function flexibleValue(record: UnknownRecord, keys: string[], fallback = ''): string {
+  for (const key of keys) {
+    const direct = record[key];
+    if (typeof direct === 'string' && direct.trim()) return direct;
+    const normalizedKey = Object.keys(record).find((candidate) => candidate.toLowerCase() === key.toLowerCase());
+    if (normalizedKey) {
+      const value = record[normalizedKey];
+      if (typeof value === 'string' && value.trim()) return value;
+    }
+  }
+
+  return fallback;
 }
 
 function numberValue(value: unknown, fallback: number): number {
@@ -207,6 +362,61 @@ function normalizeFileStatus(value: unknown): FileReferenceStatus {
   return 'mapped';
 }
 
+function normalizeQAStatus(value: unknown): QAItemStatus {
+  const raw = stringValue(value, 'not-started').trim().toLowerCase();
+  if (raw === 'todo' || raw === 'pending' || raw === 'not started') return 'not-started';
+  if (raw === 'retest' || raw === 'needs retest' || raw === 'needs-retest') return 'needs-retest';
+  if (raw === 'in progress' || raw === 'active') return 'in-progress';
+  if (raw === 'pass' || raw.startsWith('passed')) return 'passed';
+  if (raw === 'fail' || raw.startsWith('failed')) return 'failed';
+  if (raw === 'ready' || raw === 'ready to test') return 'ready';
+  if (raw === 'partial' || raw === 'partially passed') return 'partial';
+  if (raw === 'future' || raw === 'roadmap') return 'future';
+  if (raw in qaStatusLabels) return raw as QAItemStatus;
+  return 'not-started';
+}
+
+function normalizeQAPriority(value: unknown): QAItemPriority {
+  const raw = stringValue(value, 'medium').trim().toLowerCase();
+  if (raw === 'p0' || raw === 'blocker') return 'critical';
+  if (raw === 'p1') return 'high';
+  if (raw === 'p2') return 'medium';
+  if (raw === 'p3') return 'low';
+  if (raw in qaPriorityLabels) return raw as QAItemPriority;
+  return 'medium';
+}
+
+function normalizeQAType(value: unknown): QAItemType {
+  const raw = stringValue(value, 'task');
+  if (raw === 'test') return 'manual-test';
+  if (raw === 'screenshot') return 'evidence';
+  if (raw in qaTypeLabels) return raw as QAItemType;
+  return 'task';
+}
+
+function normalizeRoadmapStatus(value: unknown): RoadmapSignalStatus {
+  const raw = stringValue(value, 'needs-review').trim().toLowerCase();
+  if (raw === 'todo' || raw === 'backlog') return 'planned';
+  if (raw === 'now' || raw === 'mvp') return 'mvp';
+  if (raw === 'current' || raw === 'active') return 'active';
+  if (raw === 'in progress' || raw === 'in-progress') return 'in-progress';
+  if (raw === 'done' || raw === 'complete' || raw === 'completed') return 'built';
+  if (raw === 'later' || raw === 'future' || raw === 'defer') return 'deferred';
+  if (raw === 'removed' || raw === 'remove') return 'cut';
+  if (raw in roadmapStatusLabels) return raw as RoadmapSignalStatus;
+  return 'needs-review';
+}
+
+function normalizeRoadmapItemType(value: unknown): RoadmapItemType {
+  const raw = stringValue(value, 'roadmap-item').trim().toLowerCase();
+  if (raw === 'feature' || raw === 'feature candidate') return 'feature-candidate';
+  if (raw === 'tech-debt' || raw === 'debt') return 'technical-debt';
+  if (['roadmap-item', 'feature-candidate', 'release', 'research', 'integration', 'technical-debt', 'qa'].includes(raw)) {
+    return raw as RoadmapItemType;
+  }
+  return 'roadmap-item';
+}
+
 function mapFileStatuses(featureStatuses: unknown, globalStatuses: UnknownRecord): Record<string, FileReferenceStatus> | undefined {
   const merged: Record<string, FileReferenceStatus> = {};
 
@@ -227,11 +437,142 @@ function mapRoadmapSignals(value: unknown): RoadmapSignal[] {
   if (!Array.isArray(value)) return [];
   return value.filter(isRecord).map((signal) => ({
     source: stringValue(signal.source),
-    status: stringValue(signal.status, 'needs-review'),
+    status: normalizeRoadmapStatus(signal.status),
     summary: stringValue(signal.summary),
     phase: stringValue(signal.phase),
     target: stringValue(signal.target),
   })).filter((signal) => signal.source && signal.summary);
+}
+
+function mapRoadmapItems(value: unknown): RoadmapItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((item, index) => {
+    const title = stringValue(item.title, stringValue(item.name, `Roadmap item ${index + 1}`));
+    return {
+      id: stringValue(item.id, `roadmap-${index + 1}`),
+      title,
+      type: normalizeRoadmapItemType(item.type),
+      status: normalizeRoadmapStatus(item.status),
+      summary: stringValue(item.summary, stringValue(item.description, stringValue(item.notes))),
+      source: flexibleValue(item, ['source', 'sourceDoc', 'Source Doc'], 'Roadmap'),
+      sourceSection: flexibleValue(item, ['sourceSection', 'section', 'Source Section']),
+      phase: stringValue(item.phase),
+      target: stringValue(item.target),
+      targetReleaseId: stringValue(item.targetReleaseId, stringValue(item.releaseId)),
+      priority: stringValue(item.priority),
+      capabilityId: stringValue(item.capabilityId),
+      disposition: item.disposition || item.mvpAction ? normalizeDisposition(item.disposition ?? item.mvpAction) : undefined,
+      repositoryIds: stringArray(item.repositoryIds ?? item.repositories),
+      featureIds: stringArray(item.featureIds ?? item.features ?? item.linkedFeatureIds),
+      fileRefs: stringArray(item.fileRefs ?? item.files ?? item.linkedFiles),
+      owner: stringValue(item.owner),
+      promotedFeatureId: stringValue(item.promotedFeatureId),
+      createdAt: stringValue(item.createdAt, stringValue(item.date)),
+      updatedAt: stringValue(item.updatedAt),
+      notes: stringArray(item.notesList ?? item.noteEntries ?? item.roadmapNotes),
+    };
+  }).filter((item) => item.title && item.summary);
+}
+
+function mapQANotes(value: unknown): QANote[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((note, index): QANote | null => {
+    if (typeof note === 'string') {
+      return { id: `note-${index + 1}`, body: note };
+    }
+
+    if (!isRecord(note)) return null;
+    const body = stringValue(note.body, stringValue(note.text, stringValue(note.note)));
+    if (!body) return null;
+    return {
+      id: stringValue(note.id, `note-${index + 1}`),
+      body,
+      author: stringValue(note.author),
+      createdAt: stringValue(note.createdAt, stringValue(note.date)),
+    };
+  }).filter((note): note is QANote => Boolean(note));
+}
+
+function mapQAAttachments(value: unknown): QAAttachment[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((attachment, index): QAAttachment | null => {
+    if (typeof attachment === 'string') {
+      const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(attachment);
+      return {
+        id: `attachment-${index + 1}`,
+        label: attachment.split(/[\\/]/).pop() || attachment,
+        type: isImage ? 'image' : 'document',
+        path: attachment,
+      } satisfies QAAttachment;
+    }
+
+    if (!isRecord(attachment)) return null;
+    const path = stringValue(attachment.path);
+    const url = stringValue(attachment.url);
+    if (!path && !url) return null;
+    return {
+      id: stringValue(attachment.id, `attachment-${index + 1}`),
+      label: stringValue(attachment.label, stringValue(attachment.name, path || url)),
+      type: ((): QAAttachmentType => {
+        const raw = stringValue(attachment.type, 'document');
+        if (['image', 'screenshot', 'document', 'log', 'link'].includes(raw)) return raw as QAAttachmentType;
+        return 'document';
+      })(),
+      path,
+      url,
+      description: stringValue(attachment.description),
+    };
+  }).filter((attachment): attachment is QAAttachment => Boolean(attachment));
+}
+
+function mapQAItems(value: unknown, defaultFeatureId?: string): QAItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((item, index) => {
+    const featureIds = stringArray(item.featureIds ?? item.features ?? item.linkedFeatureIds);
+    const featureId = stringValue(item.featureId);
+    if (featureId && !featureIds.includes(featureId)) featureIds.push(featureId);
+    if (defaultFeatureId && !featureIds.includes(defaultFeatureId)) featureIds.push(defaultFeatureId);
+
+    const fileRefs = stringArray(item.fileRefs ?? item.files ?? item.linkedFiles);
+    const rawStatus = flexibleValue(item, ['rawStatus', 'Status']);
+    const rawPriority = flexibleValue(item, ['rawPriority', 'Priority']);
+    const title = stringValue(item.title, stringValue(item.name, `QA item ${index + 1}`));
+    return {
+      id: stringValue(item.id, `qa-${index + 1}`),
+      testId: flexibleValue(item, ['testId', 'Test ID', 'Issue ID']),
+      title,
+      type: normalizeQAType(item.type),
+      status: normalizeQAStatus(item.status ?? rawStatus),
+      rawStatus,
+      priority: normalizeQAPriority(item.priority ?? rawPriority),
+      rawPriority,
+      summary: stringValue(item.summary, stringValue(item.description, Array.isArray(item.notes) ? '' : stringValue(item.notes))),
+      featureIds,
+      repositoryIds: stringArray(item.repositoryIds ?? item.repositories),
+      fileRefs,
+      track: flexibleValue(item, ['track', 'Track']),
+      area: flexibleValue(item, ['area', 'Area']),
+      modeTier: flexibleValue(item, ['modeTier', 'Mode / Tier', 'Mode/Tier']),
+      result: flexibleValue(item, ['result', 'Result']),
+      owner: stringValue(item.owner),
+      lastTested: flexibleValue(item, ['lastTested', 'Last Tested']),
+      nextAction: flexibleValue(item, ['nextAction', 'Next Action']),
+      blocking: flexibleValue(item, ['blocking', 'Blocking?']),
+      mvpBlocker: flexibleValue(item, ['mvpBlocker', 'MVP Blocker?']),
+      stripeBlocker: flexibleValue(item, ['stripeBlocker', 'Stripe Blocker?']),
+      automationCoverage: flexibleValue(item, ['automationCoverage', 'Automation Coverage']),
+      issueLink: flexibleValue(item, ['issueLink', 'Issue Link']),
+      actualResult: flexibleValue(item, ['actualResult', 'Actual Result']),
+      sourceDoc: flexibleValue(item, ['sourceDoc', 'Source Doc']),
+      sourceSection: flexibleValue(item, ['sourceSection', 'Source Section']),
+      createdAt: stringValue(item.createdAt, stringValue(item.date)),
+      updatedAt: stringValue(item.updatedAt),
+      due: stringValue(item.due),
+      acceptanceCriteria: stringArray(item.acceptanceCriteria ?? item.criteria),
+      notes: mapQANotes(item.notesList ?? item.noteEntries ?? item.qaNotes ?? item.notes),
+      attachments: mapQAAttachments(item.attachments ?? item.evidence ?? item.images),
+    };
+  }).filter((item) => item.title && item.featureIds.length > 0);
 }
 
 function mapFileMapRepositories(value: unknown): ProjectRepository[] {
@@ -297,6 +638,14 @@ function mapFileMapFeatures(value: unknown, globalFileStatuses: UnknownRecord = 
   }).filter((feature) => feature.id);
 }
 
+function mapFeatureScopedQAItems(value: unknown): QAItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).flatMap((feature) => {
+    const featureId = stringValue(feature.id);
+    return mapQAItems(feature.qaItems ?? feature.qaTasks ?? feature.qa, featureId);
+  });
+}
+
 function mapFileMapDependencies(value: unknown): FeatureDependency[] {
   if (!Array.isArray(value)) return [];
   return value.filter(isRecord).map((dependency, index) => ({
@@ -339,6 +688,11 @@ export function projectAnalysisFromJson(value: unknown, sourceLabel = 'Imported 
       scopePurpose: stringValue(scope.purpose),
       privacyBoundary: stringValue(scope.privacyBoundary),
       roadmapSources: mapRoadmapSignals(value.roadmapSources),
+      roadmapItems: mapRoadmapItems(value.roadmapItems ?? value.roadmap ?? value.roadmapEntries),
+      qaItems: [
+        ...mapQAItems(value.qaItems ?? value.qaTasks ?? value.qa),
+        ...mapFeatureScopedQAItems(value.features),
+      ],
       doNotCutBeforeChecks: stringArray(value.doNotCutBeforeChecks),
       openQuestions: stringArray(value.openQuestionsForReview),
       firstSlimmingCandidates: mapSlimmingCandidates(value.firstSlimmingCandidates),
@@ -420,6 +774,12 @@ export const sampleProjectAnalysis: ProjectAnalysisModel = {
       effort: 3,
       risk: 2,
       rationale: 'Core planning surface with a direct path to user value.',
+      appFiles: ['src/screens/BriefWorkspace.tsx'],
+      qaEvidenceFiles: ['qa/manual/brief-builder-smoke.md'],
+      fileStatuses: {
+        'src/screens/BriefWorkspace.tsx': 'existing',
+        'qa/manual/brief-builder-smoke.md': 'needs-review',
+      },
     },
     {
       id: 'asset-review',
@@ -432,6 +792,14 @@ export const sampleProjectAnalysis: ProjectAnalysisModel = {
       effort: 4,
       risk: 3,
       rationale: 'Needed for MVP, but advanced routing can wait.',
+      appFiles: ['src/screens/ReviewQueue.tsx'],
+      pluginFiles: ['cms-plugin/review-sync.ts'],
+      qaEvidenceFiles: ['qa/screenshots/review-empty-state.png'],
+      fileStatuses: {
+        'src/screens/ReviewQueue.tsx': 'existing',
+        'cms-plugin/review-sync.ts': 'mapped',
+        'qa/screenshots/review-empty-state.png': 'needs-review',
+      },
     },
     {
       id: 'publish-scheduler',
@@ -532,6 +900,77 @@ export const sampleProjectAnalysis: ProjectAnalysisModel = {
       toFeatureId: 'brief-builder',
       type: 'feeds',
       description: 'Insights can recommend planning improvements.',
+    },
+  ],
+  roadmapItems: [
+    {
+      id: 'roadmap-research-import',
+      title: 'Research Import',
+      type: 'feature-candidate',
+      status: 'mvp',
+      summary: 'Bring source material into the workflow without full automated research.',
+      source: 'docs/roadmap/PRODUCT-ROADMAP.md',
+      sourceSection: 'MVP Scope',
+      phase: 'MVP',
+      target: 'Launch',
+      targetReleaseId: 'mvp',
+      priority: 'High',
+      capabilityId: 'planning',
+      repositoryIds: ['customer-portal'],
+      featureIds: ['brief-builder'],
+      fileRefs: ['src/screens/BriefWorkspace.tsx'],
+      notes: ['Promote this kind of item when the intake flow needs actual files and QA.'],
+    },
+    {
+      id: 'roadmap-agency-white-label',
+      title: 'Agency White Label',
+      type: 'feature-candidate',
+      status: 'deferred',
+      summary: 'Package team and client-facing customization after the core launch path is proven.',
+      source: 'docs/roadmap/AGENCY-WHITE-LABEL.md',
+      phase: 'Later',
+      target: 'Post-MVP',
+      priority: 'Future',
+      capabilityId: 'collaboration',
+    },
+  ],
+  qaItems: [
+    {
+      id: 'qa-brief-builder-smoke',
+      title: 'Brief builder happy path smoke',
+      type: 'manual-test',
+      status: 'passed',
+      priority: 'critical',
+      summary: 'Create a brief, save it, reload, and confirm the planning fields persist.',
+      featureIds: ['brief-builder'],
+      repositoryIds: ['customer-portal'],
+      fileRefs: ['src/screens/BriefWorkspace.tsx', 'qa/manual/brief-builder-smoke.md'],
+      notes: [
+        {
+          id: 'note-brief-1',
+          body: 'Use this as the primary release-readiness check for the planning surface.',
+          createdAt: '2026-08-17',
+        },
+      ],
+    },
+    {
+      id: 'qa-review-empty-state',
+      title: 'Review queue empty state needs screenshot review',
+      type: 'evidence',
+      status: 'needs-retest',
+      priority: 'high',
+      summary: 'Confirm the simplified review queue communicates next action without advanced routing controls.',
+      featureIds: ['asset-review'],
+      repositoryIds: ['customer-portal'],
+      fileRefs: ['src/screens/ReviewQueue.tsx', 'qa/screenshots/review-empty-state.png'],
+      attachments: [
+        {
+          id: 'review-empty-shot',
+          label: 'Review queue empty state',
+          type: 'screenshot',
+          path: 'qa/screenshots/review-empty-state.png',
+        },
+      ],
     },
   ],
 };

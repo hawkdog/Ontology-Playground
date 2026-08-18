@@ -12,8 +12,15 @@
 - [x] Add local import for private project-analysis JSON files.
 - [x] Add file status labels for mapped, existing, planned, orphaned, and needs-review file mappings.
 - [x] Display imported roadmap-doc signals for feature and release visualization.
-- [ ] Add local export for project-analysis JSON files.
+- [x] Add QA task/note/evidence tracking linked to features and mapped files.
+- [x] Add local export for project-analysis JSON files.
+- [x] Persist Project Analyzer edits to a private local API/database instead of browser-session state.
+- [x] Move QA tracking to a dedicated dashboard route with menu and command-palette access.
+- [x] Add tracker-style QA fields for blocker flags, results, next actions, source docs, and automation coverage.
+- [x] Move roadmap intake to a dedicated dashboard route with menu and command-palette access.
+- [x] Add roadmap-item promotion into active feature mapping.
 - [ ] Add automated roadmap-doc ingestion for feature and release visualization.
+- [ ] Add spreadsheet/roadmap import helpers that convert private QA trackers and roadmap markdown into project-analysis records.
 - [ ] Add ontology/RDF export for project-analysis models.
 
 ---

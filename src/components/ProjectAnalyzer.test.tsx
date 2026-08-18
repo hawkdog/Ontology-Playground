@@ -63,6 +63,34 @@ const privateFeatureFileMap = {
       mvpNotes: ['Keep the app-led flow.'],
     },
   ],
+  qaItems: [
+    {
+      id: 'qa-brief-create',
+      title: 'Brief create smoke test',
+      type: 'manual-test',
+      status: 'needs-retest',
+      priority: 'critical',
+      summary: 'Create a brief, save it, reload, and confirm persisted fields.',
+      featureIds: ['briefs'],
+      repositoryIds: ['app'],
+      fileRefs: ['app/campaigns/[id]/brief.tsx'],
+      notes: [
+        {
+          id: 'qa-note-1',
+          body: 'Retest after MVP navigation changes land.',
+          createdAt: '2026-08-17',
+        },
+      ],
+      attachments: [
+        {
+          id: 'brief-shot',
+          label: 'Brief form screenshot',
+          type: 'screenshot',
+          path: 'qa/screenshots/brief-form.png',
+        },
+      ],
+    },
+  ],
   dependencyGraph: [],
   doNotCutBeforeChecks: ['briefs'],
   firstSlimmingCandidates: [],

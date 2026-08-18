@@ -84,6 +84,14 @@ describe('parseHash', () => {
     expect(parseHash('#/analysis')).toEqual({ page: 'analysis' });
   });
 
+  it('parses QA dashboard route', () => {
+    expect(parseHash('#/qa')).toEqual({ page: 'qa' });
+  });
+
+  it('parses roadmap dashboard route', () => {
+    expect(parseHash('#/roadmap')).toEqual({ page: 'roadmap' });
+  });
+
   it('rejects designer route with path traversal', () => {
     expect(parseHash('#/designer/../../etc/passwd')).toEqual({
       page: 'designer',
@@ -269,6 +277,14 @@ describe('routeToHash', () => {
     expect(routeToHash({ page: 'analysis' })).toBe('#/analysis');
   });
 
+  it('converts QA dashboard route', () => {
+    expect(routeToHash({ page: 'qa' })).toBe('#/qa');
+  });
+
+  it('converts roadmap dashboard route', () => {
+    expect(routeToHash({ page: 'roadmap' })).toBe('#/roadmap');
+  });
+
   it('converts learn route without slug', () => {
     expect(routeToHash({ page: 'learn' })).toBe('#/learn');
   });
@@ -304,6 +320,8 @@ describe('roundtrip', () => {
     { page: 'designer' as const },
     { page: 'designer' as const, ontologyId: 'official/cosmic-coffee' },
     { page: 'analysis' as const },
+    { page: 'qa' as const },
+    { page: 'roadmap' as const },
     { page: 'learn' as const },
     { page: 'learn' as const, courseSlug: 'ontology-fundamentals' },
     { page: 'learn' as const, courseSlug: 'ontology-fundamentals', articleSlug: 'what-is-an-ontology' },
