@@ -89,6 +89,7 @@ export interface RoadmapItem {
   createdAt?: string;
   updatedAt?: string;
   notes?: string[];
+  progressLog?: ProjectProgressEntry[];
 }
 
 export interface QANote {
@@ -105,6 +106,15 @@ export interface QAAttachment {
   path?: string;
   url?: string;
   description?: string;
+}
+
+export interface ProjectProgressEntry {
+  id: string;
+  createdAt: string;
+  body: string;
+  status?: string;
+  author?: string;
+  images?: QAAttachment[];
 }
 
 export interface QAItem {
@@ -141,6 +151,8 @@ export interface QAItem {
   acceptanceCriteria?: string[];
   notes?: QANote[];
   attachments?: QAAttachment[];
+  progressLog?: ProjectProgressEntry[];
+  isCurrent?: boolean;
 }
 
 export interface CodeComponentReference {
@@ -333,6 +345,12 @@ function numberValue(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
+function booleanValue(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return ['1', 'true', 'yes', 'y', 'current', 'active'].includes(value.trim().toLowerCase());
+  return false;
+}
+
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
@@ -470,6 +488,7 @@ function mapRoadmapItems(value: unknown): RoadmapItem[] {
       createdAt: stringValue(item.createdAt, stringValue(item.date)),
       updatedAt: stringValue(item.updatedAt),
       notes: stringArray(item.notesList ?? item.noteEntries ?? item.roadmapNotes),
+      progressLog: mapProgressLog(item.progressLog ?? item.history ?? item.testLog),
     };
   }).filter((item) => item.title && item.summary);
 }
@@ -525,6 +544,27 @@ function mapQAAttachments(value: unknown): QAAttachment[] {
   }).filter((attachment): attachment is QAAttachment => Boolean(attachment));
 }
 
+function mapProgressLog(value: unknown): ProjectProgressEntry[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry, index): ProjectProgressEntry | null => {
+    if (typeof entry === 'string') {
+      return { id: `progress-${index + 1}`, createdAt: '', body: entry };
+    }
+
+    if (!isRecord(entry)) return null;
+    const body = stringValue(entry.body, stringValue(entry.note, stringValue(entry.notes)));
+    if (!body) return null;
+    return {
+      id: stringValue(entry.id, `progress-${index + 1}`),
+      createdAt: stringValue(entry.createdAt, stringValue(entry.date, stringValue(entry.testedAt))),
+      body,
+      status: stringValue(entry.status),
+      author: stringValue(entry.author),
+      images: mapQAAttachments(entry.images ?? entry.attachments ?? entry.evidence),
+    };
+  }).filter((entry): entry is ProjectProgressEntry => Boolean(entry));
+}
+
 function mapQAItems(value: unknown, defaultFeatureId?: string): QAItem[] {
   if (!Array.isArray(value)) return [];
   return value.filter(isRecord).map((item, index) => {
@@ -571,6 +611,8 @@ function mapQAItems(value: unknown, defaultFeatureId?: string): QAItem[] {
       acceptanceCriteria: stringArray(item.acceptanceCriteria ?? item.criteria),
       notes: mapQANotes(item.notesList ?? item.noteEntries ?? item.qaNotes ?? item.notes),
       attachments: mapQAAttachments(item.attachments ?? item.evidence ?? item.images),
+      progressLog: mapProgressLog(item.progressLog ?? item.history ?? item.testLog),
+      isCurrent: booleanValue(item.isCurrent ?? item.current),
     };
   }).filter((item) => item.title && item.featureIds.length > 0);
 }

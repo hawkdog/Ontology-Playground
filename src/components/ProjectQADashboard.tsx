@@ -9,12 +9,16 @@ import {
   FileImage,
   FileJson,
   FileText,
+  ImagePlus,
   ListFilter,
   Network,
+  Pencil,
   Plus,
   Save,
   ShieldAlert,
+  Star,
   Upload,
+  X,
 } from 'lucide-react';
 import {
   projectAnalysisFromJson,
@@ -29,6 +33,7 @@ import {
   type QAItemPriority,
   type QAItemStatus,
   type QAItemType,
+  type QAAttachment,
 } from '../data/projectAnalysis';
 import { navigate } from '../lib/router';
 import { loadProjectAnalysisFromApi, saveProjectAnalysisToApi } from '../lib/projectAnalysisApi';
@@ -93,6 +98,82 @@ function inferAttachmentType(path: string): 'screenshot' | 'document' | 'link' {
   return 'document';
 }
 
+function toDateTimeInputValue(value?: string): string {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return toDateTimeInputValue();
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function fromDateTimeInputValue(value: string): string {
+  const date = value ? new Date(value) : new Date();
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
+function formatProgressDate(value?: string): string {
+  if (!value) return 'No date';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+function readImageAsAttachment(file: File): Promise<QAAttachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({
+      id: makeId('image'),
+      label: file.name,
+      type: 'screenshot',
+      url: typeof reader.result === 'string' ? reader.result : undefined,
+      description: 'Uploaded from the QA edit dialog.',
+    });
+    reader.onerror = () => reject(new Error('Unable to read that image file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+type QAEditDraft = {
+  title: string;
+  status: QAItemStatus;
+  priority: QAItemPriority;
+  type: QAItemType;
+  summary: string;
+  result: string;
+  actualResult: string;
+  nextAction: string;
+  blocking: string;
+  mvpBlocker: string;
+  stripeBlocker: string;
+  automationCoverage: string;
+  isCurrent: boolean;
+  progressDate: string;
+  progressNote: string;
+  imageRef: string;
+  pendingImages: QAAttachment[];
+};
+
+function qaEditDraftFromItem(item: QAItem): QAEditDraft {
+  return {
+    title: item.title,
+    status: item.status,
+    priority: item.priority,
+    type: item.type,
+    summary: item.summary,
+    result: item.result ?? '',
+    actualResult: item.actualResult ?? '',
+    nextAction: item.nextAction ?? '',
+    blocking: item.blocking ?? '',
+    mvpBlocker: item.mvpBlocker ?? '',
+    stripeBlocker: item.stripeBlocker ?? '',
+    automationCoverage: item.automationCoverage ?? '',
+    isCurrent: Boolean(item.isCurrent),
+    progressDate: toDateTimeInputValue(),
+    progressNote: '',
+    imageRef: '',
+    pendingImages: [],
+  };
+}
+
 export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboardProps) {
   const [activeModel, setActiveModel] = useState<ProjectAnalysisModel | null>(model ?? null);
   const [apiBusy, setApiBusy] = useState(false);
@@ -103,7 +184,10 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
   const [typeFilter, setTypeFilter] = useState<typeof all | QAItemType>(all);
   const [featureFilter, setFeatureFilter] = useState(all);
   const [repoFilter, setRepoFilter] = useState(all);
+  const [selectedQAItemId, setSelectedQAItemId] = useState<string | null>(null);
+  const [qaEditDraft, setQAEditDraft] = useState<QAEditDraft | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const progressImageInputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState({
     featureId: '',
     title: '',
@@ -161,7 +245,8 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
 
   const featureById = useMemo(() => new Map((workingModel?.features ?? []).map((feature) => [feature.id, feature])), [workingModel]);
   const repoById = useMemo(() => new Map((workingModel?.repositories ?? []).map((repo) => [repo.id, repo])), [workingModel]);
-  const qaItems = workingModel?.qaItems ?? [];
+  const qaItems = useMemo(() => workingModel?.qaItems ?? [], [workingModel]);
+  const selectedQAItem = selectedQAItemId ? qaItems.find((item) => item.id === selectedQAItemId) : undefined;
 
   const sourceDocs = useMemo(() => {
     const docs = new Set<string>();
@@ -208,6 +293,124 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
   const mvpBlockerCount = qaItems.filter((item) => yesFlag(item.mvpBlocker)).length;
   const stripeBlockerCount = qaItems.filter((item) => yesFlag(item.stripeBlocker)).length;
   const automatedCount = qaItems.filter((item) => item.automationCoverage && !['none', 'no'].includes(item.automationCoverage.toLowerCase())).length;
+  const currentItemCount = qaItems.filter((item) => item.isCurrent).length;
+
+  const updateQAItems = (updater: (items: QAItem[]) => QAItem[]) => {
+    if (!workingModel) return;
+    setActiveModel({ ...workingModel, qaItems: updater(workingModel.qaItems ?? []) });
+  };
+
+  const openQAEditor = (item: QAItem) => {
+    setSelectedQAItemId(item.id);
+    setQAEditDraft(qaEditDraftFromItem(item));
+  };
+
+  const closeQAEditor = () => {
+    setSelectedQAItemId(null);
+    setQAEditDraft(null);
+  };
+
+  const saveQAEditor = () => {
+    if (!selectedQAItem || !qaEditDraft) return;
+    const now = new Date().toISOString();
+    updateQAItems((items) => items.map((item) => {
+      if (item.id !== selectedQAItem.id) {
+        return qaEditDraft.isCurrent ? { ...item, isCurrent: false } : item;
+      }
+
+      return {
+        ...item,
+        title: qaEditDraft.title.trim() || item.title,
+        status: qaEditDraft.status,
+        priority: qaEditDraft.priority,
+        type: qaEditDraft.type,
+        summary: qaEditDraft.summary.trim(),
+        result: qaEditDraft.result.trim(),
+        actualResult: qaEditDraft.actualResult.trim(),
+        nextAction: qaEditDraft.nextAction.trim(),
+        blocking: qaEditDraft.blocking.trim(),
+        mvpBlocker: qaEditDraft.mvpBlocker.trim(),
+        stripeBlocker: qaEditDraft.stripeBlocker.trim(),
+        automationCoverage: qaEditDraft.automationCoverage.trim(),
+        isCurrent: qaEditDraft.isCurrent,
+        updatedAt: now,
+        lastTested: now,
+      };
+    }));
+    setApiMessage('Updated QA item in the local map. Use Save DB to persist it.');
+  };
+
+  const setCurrentQAItem = (itemId: string, current: boolean) => {
+    updateQAItems((items) => items.map((item) => ({ ...item, isCurrent: current ? item.id === itemId : item.id === itemId ? false : item.isCurrent })));
+    if (selectedQAItemId === itemId && qaEditDraft) {
+      setQAEditDraft({ ...qaEditDraft, isCurrent: current });
+    }
+  };
+
+  const addProgressImageRef = () => {
+    if (!qaEditDraft || !qaEditDraft.imageRef.trim()) return;
+    const ref = qaEditDraft.imageRef.trim();
+    setQAEditDraft({
+      ...qaEditDraft,
+      imageRef: '',
+      pendingImages: [
+        ...qaEditDraft.pendingImages,
+        {
+          id: makeId('image'),
+          label: ref.split(/[\\/]/).pop() || ref,
+          type: inferAttachmentType(ref) === 'link' ? 'link' : 'screenshot',
+          path: /^https?:\/\//i.test(ref) ? undefined : ref,
+          url: /^https?:\/\//i.test(ref) ? ref : undefined,
+        },
+      ],
+    });
+  };
+
+  const handleProgressImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !qaEditDraft) return;
+
+    try {
+      const attachment = await readImageAsAttachment(file);
+      setQAEditDraft({ ...qaEditDraft, pendingImages: [...qaEditDraft.pendingImages, attachment] });
+    } catch (error) {
+      setApiMessage(error instanceof Error ? error.message : 'Unable to attach that image.');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const addQAProgressEntry = () => {
+    if (!selectedQAItem || !qaEditDraft) return;
+    const body = qaEditDraft.progressNote.trim();
+    if (!body && qaEditDraft.pendingImages.length === 0) return;
+    const createdAt = fromDateTimeInputValue(qaEditDraft.progressDate);
+    const entry = {
+      id: makeId('progress'),
+      createdAt,
+      body: body || 'Image evidence added.',
+      status: qaEditDraft.status,
+      images: qaEditDraft.pendingImages,
+    };
+    updateQAItems((items) => items.map((item) => item.id === selectedQAItem.id
+      ? {
+        ...item,
+        status: qaEditDraft.status,
+        updatedAt: createdAt,
+        lastTested: createdAt,
+        progressLog: [entry, ...(item.progressLog ?? [])],
+        attachments: [...(qaEditDraft.pendingImages.length > 0 ? qaEditDraft.pendingImages : []), ...(item.attachments ?? [])],
+      }
+      : item));
+    setQAEditDraft({
+      ...qaEditDraft,
+      progressDate: toDateTimeInputValue(),
+      progressNote: '',
+      imageRef: '',
+      pendingImages: [],
+    });
+    setApiMessage('Added QA progress entry. Use Save DB to persist it.');
+  };
 
   const handleLoadPrivateDb = async () => {
     setApiBusy(true);
@@ -375,6 +578,11 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
             <span>Open</span>
           </div>
           <div className="analysis-summary-card">
+            <Star size={18} />
+            <strong>{currentItemCount}</strong>
+            <span>Current</span>
+          </div>
+          <div className="analysis-summary-card">
             <ShieldAlert size={18} />
             <strong>{blockerCount}</strong>
             <span>Blockers</span>
@@ -496,9 +704,10 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
             {filteredQAItems.length === 0 ? (
               <div className="analysis-empty-state">No QA items match the current filters.</div>
             ) : filteredQAItems.map((item) => (
-              <article key={item.id} className="analysis-qa-card">
+              <article key={item.id} className={`analysis-qa-card ${item.isCurrent ? 'analysis-qa-card--current' : ''}`}>
                 <header>
                   <div>
+                    {item.isCurrent && <span className="analysis-current-pill"><Star size={12} /> Current</span>}
                     <span className="analysis-file-status" style={{ borderColor: qaStatusColors[item.status], color: qaStatusColors[item.status] }}>
                       {item.rawStatus || qaStatusLabels[item.status]}
                     </span>
@@ -559,6 +768,12 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
                     ))}
                   </div>
                 )}
+                {(item.progressLog?.length ?? 0) > 0 && (
+                  <div className="analysis-qa-next-action">
+                    <strong>Latest progress</strong>
+                    <span>{formatProgressDate(item.progressLog?.[0]?.createdAt)} · {item.progressLog?.[0]?.body}</span>
+                  </div>
+                )}
                 {(item.sourceDoc || item.sourceSection || item.issueLink) && (
                   <div className="analysis-qa-source-row">
                     {item.sourceDoc && <span><FileText size={13} /> {item.sourceDoc}</span>}
@@ -571,6 +786,16 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
                     {item.notes?.map((note) => <li key={note.id}>{note.body}</li>)}
                   </ul>
                 )}
+                <div className="analysis-card-actions">
+                  <button className="analysis-card-toggle analysis-card-toggle--secondary" type="button" onClick={() => openQAEditor(item)} aria-haspopup="dialog">
+                    <Pencil size={15} />
+                    Edit item
+                  </button>
+                  <button className="analysis-chip-button" type="button" onClick={() => setCurrentQAItem(item.id, !item.isCurrent)}>
+                    <Star size={13} />
+                    {item.isCurrent ? 'Clear current' : 'Mark current'}
+                  </button>
+                </div>
               </article>
             ))}
           </section>
@@ -698,6 +923,168 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
           </section>
         </aside>
       </main>
+
+      {selectedQAItem && qaEditDraft && (
+        <div className="analysis-modal-backdrop" role="presentation" onClick={closeQAEditor}>
+          <section
+            className="analysis-detail-modal analysis-edit-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qa-edit-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header>
+              <div>
+                <span className="analysis-kicker">QA Item Editor</span>
+                <h2 id="qa-edit-title">{selectedQAItem.title}</h2>
+                <p>{selectedQAItem.testId || selectedQAItem.id}</p>
+              </div>
+              <button className="analysis-modal-close" type="button" aria-label="Close QA editor" onClick={closeQAEditor}>
+                <X size={18} />
+              </button>
+            </header>
+            <div className="analysis-detail-body analysis-edit-body">
+              <section className="analysis-edit-section">
+                <h3>Item Details</h3>
+                <div className="analysis-edit-grid">
+                  <label>
+                    <span>Title</span>
+                    <input value={qaEditDraft.title} onChange={(event) => setQAEditDraft({ ...qaEditDraft, title: event.target.value })} />
+                  </label>
+                  <label>
+                    <span>Status</span>
+                    <select value={qaEditDraft.status} onChange={(event) => setQAEditDraft({ ...qaEditDraft, status: event.target.value as QAItemStatus })}>
+                      {qaStatusOrder.map((status) => <option key={status} value={status}>{qaStatusLabels[status]}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Priority</span>
+                    <select value={qaEditDraft.priority} onChange={(event) => setQAEditDraft({ ...qaEditDraft, priority: event.target.value as QAItemPriority })}>
+                      {qaPriorityOrder.map((priority) => <option key={priority} value={priority}>{qaPriorityLabels[priority]}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Type</span>
+                    <select value={qaEditDraft.type} onChange={(event) => setQAEditDraft({ ...qaEditDraft, type: event.target.value as QAItemType })}>
+                      {qaTypeOrder.map((type) => <option key={type} value={type}>{qaTypeLabels[type]}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  <span>Summary</span>
+                  <textarea rows={3} value={qaEditDraft.summary} onChange={(event) => setQAEditDraft({ ...qaEditDraft, summary: event.target.value })} />
+                </label>
+                <label>
+                  <span>Next action</span>
+                  <textarea rows={3} value={qaEditDraft.nextAction} onChange={(event) => setQAEditDraft({ ...qaEditDraft, nextAction: event.target.value })} />
+                </label>
+                <div className="analysis-edit-grid">
+                  <label>
+                    <span>Result</span>
+                    <input value={qaEditDraft.result} onChange={(event) => setQAEditDraft({ ...qaEditDraft, result: event.target.value })} />
+                  </label>
+                  <label>
+                    <span>Actual result</span>
+                    <input value={qaEditDraft.actualResult} onChange={(event) => setQAEditDraft({ ...qaEditDraft, actualResult: event.target.value })} />
+                  </label>
+                  <label>
+                    <span>MVP blocker</span>
+                    <input value={qaEditDraft.mvpBlocker} onChange={(event) => setQAEditDraft({ ...qaEditDraft, mvpBlocker: event.target.value })} />
+                  </label>
+                  <label>
+                    <span>Stripe blocker</span>
+                    <input value={qaEditDraft.stripeBlocker} onChange={(event) => setQAEditDraft({ ...qaEditDraft, stripeBlocker: event.target.value })} />
+                  </label>
+                </div>
+                <label className="analysis-current-toggle">
+                  <input type="checkbox" checked={qaEditDraft.isCurrent} onChange={(event) => setQAEditDraft({ ...qaEditDraft, isCurrent: event.target.checked })} />
+                  <span>Current work item</span>
+                </label>
+                <div className="analysis-card-actions">
+                  <button className="analysis-card-toggle" type="button" onClick={saveQAEditor}>
+                    <Save size={15} />
+                    Save item changes
+                  </button>
+                  <button className="analysis-chip-button" type="button" onClick={() => setCurrentQAItem(selectedQAItem.id, !selectedQAItem.isCurrent)}>
+                    <Star size={13} />
+                    {selectedQAItem.isCurrent ? 'Clear current' : 'Mark current'}
+                  </button>
+                </div>
+              </section>
+
+              <section className="analysis-edit-section">
+                <h3>Add Progress Step</h3>
+                <div className="analysis-edit-grid">
+                  <label>
+                    <span>Date</span>
+                    <input type="datetime-local" value={qaEditDraft.progressDate} onChange={(event) => setQAEditDraft({ ...qaEditDraft, progressDate: event.target.value })} />
+                  </label>
+                  <label>
+                    <span>Image path or URL</span>
+                    <input value={qaEditDraft.imageRef} onChange={(event) => setQAEditDraft({ ...qaEditDraft, imageRef: event.target.value })} />
+                  </label>
+                </div>
+                <label>
+                  <span>Notes</span>
+                  <textarea rows={4} value={qaEditDraft.progressNote} onChange={(event) => setQAEditDraft({ ...qaEditDraft, progressNote: event.target.value })} />
+                </label>
+                <div className="analysis-card-actions">
+                  <button className="analysis-chip-button" type="button" onClick={addProgressImageRef} disabled={!qaEditDraft.imageRef.trim()}>
+                    <ImagePlus size={14} />
+                    Add image reference
+                  </button>
+                  <button className="analysis-chip-button" type="button" onClick={() => progressImageInputRef.current?.click()}>
+                    <Upload size={14} />
+                    Pick image
+                  </button>
+                  <button className="analysis-card-toggle" type="button" onClick={addQAProgressEntry} disabled={!qaEditDraft.progressNote.trim() && qaEditDraft.pendingImages.length === 0}>
+                    <Plus size={15} />
+                    Add progress step
+                  </button>
+                </div>
+                <input ref={progressImageInputRef} className="sr-only" type="file" accept="image/*" onChange={handleProgressImageUpload} aria-label="Upload QA progress image" />
+                {qaEditDraft.pendingImages.length > 0 && (
+                  <div className="analysis-image-strip">
+                    {qaEditDraft.pendingImages.map((image) => (
+                      <figure key={image.id}>
+                        {image.url && <img src={image.url} alt={image.label} />}
+                        <figcaption>{image.label}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="analysis-edit-section">
+                <h3>Progress Log</h3>
+                {(selectedQAItem.progressLog?.length ?? 0) === 0 ? (
+                  <p>No progress entries have been added yet.</p>
+                ) : (
+                  <ol className="analysis-progress-log">
+                    {selectedQAItem.progressLog?.map((entry) => (
+                      <li key={entry.id}>
+                        <time>{formatProgressDate(entry.createdAt)}</time>
+                        {entry.status && <span>{entry.status}</span>}
+                        <p>{entry.body}</p>
+                        {(entry.images?.length ?? 0) > 0 && (
+                          <div className="analysis-image-strip">
+                            {entry.images?.map((image) => (
+                              <figure key={image.id}>
+                                {image.url && <img src={image.url} alt={image.label} />}
+                                <figcaption>{image.label}</figcaption>
+                              </figure>
+                            ))}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

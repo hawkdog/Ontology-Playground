@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ProjectQADashboard } from './ProjectQADashboard';
@@ -134,5 +134,26 @@ describe('ProjectQADashboard', () => {
     expect(screen.getByText('APP-MVP-002')).toBeInTheDocument();
     expect(screen.getByText('docs/MASTER-TESTING-CHECKLIST.md')).toBeInTheDocument();
     expect(screen.getByText('Use the private QA notes as source of truth.')).toBeInTheDocument();
+  });
+
+  it('edits a QA item, marks it current, and adds a dated progress entry', async () => {
+    const user = userEvent.setup();
+    render(<ProjectQADashboard model={privateQAProject} autoLoad={false} />);
+
+    const item = screen.getByRole('heading', { name: 'Brief create smoke test' }).closest('article');
+    expect(item).not.toBeNull();
+
+    await user.click(within(item as HTMLElement).getByRole('button', { name: 'Edit item' }));
+    const dialog = screen.getByRole('dialog', { name: 'Brief create smoke test' });
+
+    await user.click(within(dialog).getByLabelText('Current work item'));
+    await user.click(within(dialog).getByRole('button', { name: 'Save item changes' }));
+    expect(within(item as HTMLElement).getByText('Current')).toBeInTheDocument();
+
+    await user.type(within(dialog).getByLabelText('Notes'), 'Retested campaign navigation after menu cleanup.');
+    await user.click(within(dialog).getByRole('button', { name: 'Add progress step' }));
+
+    expect(within(dialog).getByText('Retested campaign navigation after menu cleanup.')).toBeInTheDocument();
+    expect(screen.getByText(/Latest progress/i)).toBeInTheDocument();
   });
 });

@@ -6,14 +6,17 @@ import {
   FileJson,
   FolderTree,
   GitBranch,
+  ImagePlus,
   ListFilter,
   Map as MapIcon,
   Milestone,
   Network,
+  Pencil,
   Plus,
   Rocket,
   Save,
   Upload,
+  X,
 } from 'lucide-react';
 import {
   dispositionLabels,
@@ -24,6 +27,7 @@ import {
   type FeatureDisposition,
   type ProductFeature,
   type ProjectAnalysisModel,
+  type QAAttachment,
   type RoadmapItem,
   type RoadmapItemType,
   type RoadmapSignalStatus,
@@ -75,12 +79,98 @@ function downloadProjectAnalysis(model: ProjectAnalysisModel): void {
   URL.revokeObjectURL(url);
 }
 
+function toDateTimeInputValue(value?: string): string {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return toDateTimeInputValue();
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function fromDateTimeInputValue(value: string): string {
+  const date = value ? new Date(value) : new Date();
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
+function formatProgressDate(value?: string): string {
+  if (!value) return 'No date';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+function inferImageRef(path: string): QAAttachment {
+  return {
+    id: makeId('image'),
+    label: path.split(/[\\/]/).pop() || path,
+    type: /^https?:\/\//i.test(path) ? 'link' : 'screenshot',
+    path: /^https?:\/\//i.test(path) ? undefined : path,
+    url: /^https?:\/\//i.test(path) ? path : undefined,
+  };
+}
+
+function readImageAsAttachment(file: File): Promise<QAAttachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({
+      id: makeId('image'),
+      label: file.name,
+      type: 'screenshot',
+      url: typeof reader.result === 'string' ? reader.result : undefined,
+      description: 'Uploaded from the roadmap edit dialog.',
+    });
+    reader.onerror = () => reject(new Error('Unable to read that image file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function statusKey(status: string): RoadmapSignalStatus {
   const normalized = status.toLowerCase();
   if (roadmapStatusOrder.includes(normalized as RoadmapSignalStatus)) return normalized as RoadmapSignalStatus;
   if (normalized === 'in progress') return 'in-progress';
   if (normalized === 'future') return 'deferred';
   return 'needs-review';
+}
+
+type RoadmapEditDraft = {
+  title: string;
+  type: RoadmapItemType;
+  status: RoadmapSignalStatus;
+  summary: string;
+  source: string;
+  sourceSection: string;
+  phase: string;
+  target: string;
+  targetReleaseId: string;
+  priority: string;
+  repositoryId: string;
+  featureId: string;
+  fileRef: string;
+  progressDate: string;
+  progressNote: string;
+  imageRef: string;
+  pendingImages: QAAttachment[];
+};
+
+function roadmapEditDraftFromItem(item: DashboardRoadmapItem): RoadmapEditDraft {
+  return {
+    title: item.title,
+    type: item.type,
+    status: statusKey(item.status),
+    summary: item.summary,
+    source: item.source,
+    sourceSection: item.sourceSection ?? '',
+    phase: item.phase ?? '',
+    target: item.target ?? '',
+    targetReleaseId: item.targetReleaseId ?? '',
+    priority: item.priority ?? '',
+    repositoryId: item.repositoryIds?.[0] ?? '',
+    featureId: item.featureIds?.[0] ?? item.promotedFeatureId ?? '',
+    fileRef: item.fileRefs?.[0] ?? '',
+    progressDate: toDateTimeInputValue(),
+    progressNote: '',
+    imageRef: '',
+    pendingImages: [],
+  };
 }
 
 function sourceTitle(source: string): string {
@@ -187,7 +277,10 @@ export function ProjectRoadmapDashboard({ model, autoLoad = true }: ProjectRoadm
   const [typeFilter, setTypeFilter] = useState<typeof all | RoadmapItemType>(all);
   const [repoFilter, setRepoFilter] = useState(all);
   const [featureFilter, setFeatureFilter] = useState(all);
+  const [selectedRoadmapItemId, setSelectedRoadmapItemId] = useState<string | null>(null);
+  const [roadmapEditDraft, setRoadmapEditDraft] = useState<RoadmapEditDraft | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const progressImageInputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState({
     title: '',
     type: 'feature-candidate' as RoadmapItemType,
@@ -238,6 +331,7 @@ export function ProjectRoadmapDashboard({ model, autoLoad = true }: ProjectRoadm
   const roadmapItems = useMemo(() => (workingModel ? collectRoadmapItems(workingModel) : []), [workingModel]);
   const featureById = useMemo(() => new Map((workingModel?.features ?? []).map((feature) => [feature.id, feature])), [workingModel]);
   const repoById = useMemo(() => new Map((workingModel?.repositories ?? []).map((repo) => [repo.id, repo])), [workingModel]);
+  const selectedRoadmapItem = selectedRoadmapItemId ? roadmapItems.find((item) => item.id === selectedRoadmapItemId) : undefined;
 
   const filteredItems = useMemo(() => {
     if (!workingModel) return [];
@@ -258,6 +352,121 @@ export function ProjectRoadmapDashboard({ model, autoLoad = true }: ProjectRoadm
   const linkedCount = workingModel ? roadmapItems.filter((item) => hasLinkedFeature(item, workingModel)).length : 0;
   const mappedFileCount = roadmapItems.reduce((count, item) => count + (item.fileRefs?.length ?? 0), 0);
   const sourceCount = new Set(roadmapItems.map((item) => item.source).filter(Boolean)).size;
+
+  const upsertRoadmapItem = (sourceItem: DashboardRoadmapItem, changes: Partial<RoadmapItem>) => {
+    if (!workingModel) return;
+    const now = new Date().toISOString();
+    const baseItem: RoadmapItem = {
+      id: sourceItem.derivedFrom === 'roadmap-item' ? sourceItem.id : makeId('roadmap'),
+      title: sourceItem.title,
+      type: sourceItem.type,
+      status: statusKey(sourceItem.status),
+      summary: sourceItem.summary,
+      source: sourceItem.source,
+      sourceSection: sourceItem.sourceSection,
+      phase: sourceItem.phase,
+      target: sourceItem.target,
+      targetReleaseId: sourceItem.targetReleaseId,
+      priority: sourceItem.priority,
+      capabilityId: sourceItem.capabilityId,
+      disposition: sourceItem.disposition,
+      repositoryIds: sourceItem.repositoryIds ?? [],
+      featureIds: sourceItem.featureIds ?? [],
+      fileRefs: sourceItem.fileRefs ?? [],
+      owner: sourceItem.owner,
+      promotedFeatureId: sourceItem.promotedFeatureId,
+      createdAt: sourceItem.createdAt || now,
+      updatedAt: now,
+      notes: sourceItem.notes ?? [],
+      progressLog: sourceItem.progressLog ?? [],
+    };
+    const nextItem = { ...baseItem, ...changes, updatedAt: now };
+    const existing = (workingModel.roadmapItems ?? []).some((item) => item.id === sourceItem.id);
+    setActiveModel({
+      ...workingModel,
+      roadmapItems: existing
+        ? (workingModel.roadmapItems ?? []).map((item) => item.id === sourceItem.id ? nextItem : item)
+        : [nextItem, ...(workingModel.roadmapItems ?? [])],
+    });
+    setSelectedRoadmapItemId(nextItem.id);
+  };
+
+  const openRoadmapEditor = (item: DashboardRoadmapItem) => {
+    setSelectedRoadmapItemId(item.id);
+    setRoadmapEditDraft(roadmapEditDraftFromItem(item));
+  };
+
+  const closeRoadmapEditor = () => {
+    setSelectedRoadmapItemId(null);
+    setRoadmapEditDraft(null);
+  };
+
+  const saveRoadmapEditor = () => {
+    if (!selectedRoadmapItem || !roadmapEditDraft) return;
+    upsertRoadmapItem(selectedRoadmapItem, {
+      title: roadmapEditDraft.title.trim() || selectedRoadmapItem.title,
+      type: roadmapEditDraft.type,
+      status: roadmapEditDraft.status,
+      summary: roadmapEditDraft.summary.trim(),
+      source: roadmapEditDraft.source.trim() || 'Manual roadmap entry',
+      sourceSection: roadmapEditDraft.sourceSection.trim(),
+      phase: roadmapEditDraft.phase.trim(),
+      target: roadmapEditDraft.target.trim(),
+      targetReleaseId: roadmapEditDraft.targetReleaseId,
+      priority: roadmapEditDraft.priority.trim(),
+      repositoryIds: roadmapEditDraft.repositoryId ? [roadmapEditDraft.repositoryId] : [],
+      featureIds: roadmapEditDraft.featureId ? [roadmapEditDraft.featureId] : [],
+      fileRefs: roadmapEditDraft.fileRef.trim() ? [roadmapEditDraft.fileRef.trim()] : [],
+    });
+    setApiMessage('Updated roadmap item in the local map. Use Save DB to persist it.');
+  };
+
+  const addProgressImageRef = () => {
+    if (!roadmapEditDraft || !roadmapEditDraft.imageRef.trim()) return;
+    setRoadmapEditDraft({
+      ...roadmapEditDraft,
+      imageRef: '',
+      pendingImages: [...roadmapEditDraft.pendingImages, inferImageRef(roadmapEditDraft.imageRef.trim())],
+    });
+  };
+
+  const handleProgressImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !roadmapEditDraft) return;
+    try {
+      const attachment = await readImageAsAttachment(file);
+      setRoadmapEditDraft({ ...roadmapEditDraft, pendingImages: [...roadmapEditDraft.pendingImages, attachment] });
+    } catch (error) {
+      setApiMessage(error instanceof Error ? error.message : 'Unable to attach that image.');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const addRoadmapProgressEntry = () => {
+    if (!selectedRoadmapItem || !roadmapEditDraft) return;
+    const body = roadmapEditDraft.progressNote.trim();
+    if (!body && roadmapEditDraft.pendingImages.length === 0) return;
+    const createdAt = fromDateTimeInputValue(roadmapEditDraft.progressDate);
+    upsertRoadmapItem(selectedRoadmapItem, {
+      status: roadmapEditDraft.status,
+      progressLog: [{
+        id: makeId('progress'),
+        createdAt,
+        body: body || 'Image evidence added.',
+        status: roadmapEditDraft.status,
+        images: roadmapEditDraft.pendingImages,
+      }, ...(selectedRoadmapItem.progressLog ?? [])],
+    });
+    setRoadmapEditDraft({
+      ...roadmapEditDraft,
+      progressDate: toDateTimeInputValue(),
+      progressNote: '',
+      imageRef: '',
+      pendingImages: [],
+    });
+    setApiMessage('Added roadmap progress entry. Use Save DB to persist it.');
+  };
 
   const handleLoadPrivateDb = async () => {
     setApiBusy(true);
@@ -549,6 +758,12 @@ export function ProjectRoadmapDashboard({ model, autoLoad = true }: ProjectRoadm
                       </ul>
                     </div>
                   )}
+                  {(item.progressLog?.length ?? 0) > 0 && (
+                    <div className="analysis-qa-next-action">
+                      <strong>Latest progress</strong>
+                      <span>{formatProgressDate(item.progressLog?.[0]?.createdAt)} · {item.progressLog?.[0]?.body}</span>
+                    </div>
+                  )}
                   <div className="analysis-qa-source-row">
                     <span><FileJson size={13} /> {item.source}</span>
                     {item.sourceSection && <span>{item.sourceSection}</span>}
@@ -561,6 +776,10 @@ export function ProjectRoadmapDashboard({ model, autoLoad = true }: ProjectRoadm
                   <button className="analysis-card-toggle" type="button" onClick={() => promoteRoadmapItem(item)}>
                     <Rocket size={15} />
                     {linked ? 'Mark Active' : 'Promote to Feature'}
+                  </button>
+                  <button className="analysis-card-toggle analysis-card-toggle--secondary" type="button" onClick={() => openRoadmapEditor(item)} aria-haspopup="dialog">
+                    <Pencil size={15} />
+                    Edit item
                   </button>
                 </article>
               );
@@ -660,6 +879,179 @@ export function ProjectRoadmapDashboard({ model, autoLoad = true }: ProjectRoadm
           </section>
         </aside>
       </main>
+
+      {selectedRoadmapItem && roadmapEditDraft && (
+        <div className="analysis-modal-backdrop" role="presentation" onClick={closeRoadmapEditor}>
+          <section
+            className="analysis-detail-modal analysis-edit-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="roadmap-edit-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header>
+              <div>
+                <span className="analysis-kicker">Roadmap Item Editor</span>
+                <h2 id="roadmap-edit-title">{selectedRoadmapItem.title}</h2>
+                <p>{selectedRoadmapItem.source}</p>
+              </div>
+              <button className="analysis-modal-close" type="button" aria-label="Close roadmap editor" onClick={closeRoadmapEditor}>
+                <X size={18} />
+              </button>
+            </header>
+            <div className="analysis-detail-body analysis-edit-body">
+              <section className="analysis-edit-section">
+                <h3>Item Details</h3>
+                <div className="analysis-edit-grid">
+                  <label>
+                    <span>Title</span>
+                    <input value={roadmapEditDraft.title} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, title: event.target.value })} />
+                  </label>
+                  <label>
+                    <span>Status</span>
+                    <select value={roadmapEditDraft.status} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, status: event.target.value as RoadmapSignalStatus })}>
+                      {roadmapStatusOrder.map((status) => <option key={status} value={status}>{roadmapStatusLabel(status)}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Type</span>
+                    <select value={roadmapEditDraft.type} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, type: event.target.value as RoadmapItemType })}>
+                      {roadmapTypeOrder.map((type) => <option key={type} value={type}>{type.replace(/-/g, ' ')}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Priority</span>
+                    <input value={roadmapEditDraft.priority} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, priority: event.target.value })} />
+                  </label>
+                </div>
+                <label>
+                  <span>Summary</span>
+                  <textarea rows={4} value={roadmapEditDraft.summary} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, summary: event.target.value })} />
+                </label>
+                <div className="analysis-edit-grid">
+                  <label>
+                    <span>Source doc</span>
+                    <input value={roadmapEditDraft.source} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, source: event.target.value })} />
+                  </label>
+                  <label>
+                    <span>Source section</span>
+                    <input value={roadmapEditDraft.sourceSection} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, sourceSection: event.target.value })} />
+                  </label>
+                  <label>
+                    <span>Phase</span>
+                    <input value={roadmapEditDraft.phase} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, phase: event.target.value })} />
+                  </label>
+                  <label>
+                    <span>Target</span>
+                    <input value={roadmapEditDraft.target} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, target: event.target.value })} />
+                  </label>
+                </div>
+                <div className="analysis-edit-grid">
+                  <label>
+                    <span>Repository</span>
+                    <select value={roadmapEditDraft.repositoryId} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, repositoryId: event.target.value })}>
+                      <option value="">Choose repository</option>
+                      {workingModel.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Feature</span>
+                    <select value={roadmapEditDraft.featureId} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, featureId: event.target.value })}>
+                      <option value="">Optional linked feature</option>
+                      {workingModel.features.map((feature) => <option key={feature.id} value={feature.id}>{feature.name}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Release</span>
+                    <select value={roadmapEditDraft.targetReleaseId} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, targetReleaseId: event.target.value })}>
+                      <option value="">Choose release</option>
+                      {workingModel.releases.map((release) => <option key={release.id} value={release.id}>{release.name}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Mapped file</span>
+                    <input value={roadmapEditDraft.fileRef} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, fileRef: event.target.value })} />
+                  </label>
+                </div>
+                <button className="analysis-card-toggle" type="button" onClick={saveRoadmapEditor}>
+                  <Save size={15} />
+                  Save item changes
+                </button>
+              </section>
+
+              <section className="analysis-edit-section">
+                <h3>Add Progress Step</h3>
+                <div className="analysis-edit-grid">
+                  <label>
+                    <span>Date</span>
+                    <input type="datetime-local" value={roadmapEditDraft.progressDate} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, progressDate: event.target.value })} />
+                  </label>
+                  <label>
+                    <span>Image path or URL</span>
+                    <input value={roadmapEditDraft.imageRef} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, imageRef: event.target.value })} />
+                  </label>
+                </div>
+                <label>
+                  <span>Notes</span>
+                  <textarea rows={4} value={roadmapEditDraft.progressNote} onChange={(event) => setRoadmapEditDraft({ ...roadmapEditDraft, progressNote: event.target.value })} />
+                </label>
+                <div className="analysis-card-actions">
+                  <button className="analysis-chip-button" type="button" onClick={addProgressImageRef} disabled={!roadmapEditDraft.imageRef.trim()}>
+                    <ImagePlus size={14} />
+                    Add image reference
+                  </button>
+                  <button className="analysis-chip-button" type="button" onClick={() => progressImageInputRef.current?.click()}>
+                    <Upload size={14} />
+                    Pick image
+                  </button>
+                  <button className="analysis-card-toggle" type="button" onClick={addRoadmapProgressEntry} disabled={!roadmapEditDraft.progressNote.trim() && roadmapEditDraft.pendingImages.length === 0}>
+                    <Plus size={15} />
+                    Add progress step
+                  </button>
+                </div>
+                <input ref={progressImageInputRef} className="sr-only" type="file" accept="image/*" onChange={handleProgressImageUpload} aria-label="Upload roadmap progress image" />
+                {roadmapEditDraft.pendingImages.length > 0 && (
+                  <div className="analysis-image-strip">
+                    {roadmapEditDraft.pendingImages.map((image) => (
+                      <figure key={image.id}>
+                        {image.url && <img src={image.url} alt={image.label} />}
+                        <figcaption>{image.label}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="analysis-edit-section">
+                <h3>Progress Log</h3>
+                {(selectedRoadmapItem.progressLog?.length ?? 0) === 0 ? (
+                  <p>No progress entries have been added yet.</p>
+                ) : (
+                  <ol className="analysis-progress-log">
+                    {selectedRoadmapItem.progressLog?.map((entry) => (
+                      <li key={entry.id}>
+                        <time>{formatProgressDate(entry.createdAt)}</time>
+                        {entry.status && <span>{roadmapStatusLabel(entry.status)}</span>}
+                        <p>{entry.body}</p>
+                        {(entry.images?.length ?? 0) > 0 && (
+                          <div className="analysis-image-strip">
+                            {entry.images?.map((image) => (
+                              <figure key={image.id}>
+                                {image.url && <img src={image.url} alt={image.label} />}
+                                <figcaption>{image.label}</figcaption>
+                              </figure>
+                            ))}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

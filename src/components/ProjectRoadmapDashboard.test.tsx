@@ -100,4 +100,26 @@ describe('ProjectRoadmapDashboard', () => {
     expect(screen.getByText('Agency White Label')).toBeInTheDocument();
     expect(screen.getByText('Defer agency branding until the launch path is proven.')).toBeInTheDocument();
   });
+
+  it('edits a roadmap item and adds a dated progress entry', async () => {
+    const user = userEvent.setup();
+    render(<ProjectRoadmapDashboard model={roadmapProject} autoLoad={false} />);
+
+    const item = screen.getByRole('heading', { name: 'Research Import' }).closest('article');
+    expect(item).not.toBeNull();
+
+    await user.click(within(item as HTMLElement).getByRole('button', { name: 'Edit item' }));
+    const dialog = screen.getByRole('dialog', { name: 'Research Import' });
+
+    await user.clear(within(dialog).getByLabelText('Priority'));
+    await user.type(within(dialog).getByLabelText('Priority'), 'Launch blocker');
+    await user.click(within(dialog).getByRole('button', { name: 'Save item changes' }));
+    expect(screen.getByText(/Launch blocker/)).toBeInTheDocument();
+
+    await user.type(within(dialog).getByLabelText('Notes'), 'Confirmed this should stay in MVP intake.');
+    await user.click(within(dialog).getByRole('button', { name: 'Add progress step' }));
+
+    expect(within(dialog).getByText('Confirmed this should stay in MVP intake.')).toBeInTheDocument();
+    expect(screen.getByText(/Latest progress/i)).toBeInTheDocument();
+  });
 });
