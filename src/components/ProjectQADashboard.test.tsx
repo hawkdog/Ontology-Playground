@@ -156,4 +156,53 @@ describe('ProjectQADashboard', () => {
     expect(within(dialog).getByText('Retested campaign navigation after menu cleanup.')).toBeInTheDocument();
     expect(screen.getByText(/Latest progress/i)).toBeInTheDocument();
   });
+
+  it('shows automated QA results and screenshot evidence in the progress log', async () => {
+    const user = userEvent.setup();
+    const modelWithAutomatedProgress: ProjectAnalysisModel = {
+      ...privateQAProject,
+      qaItems: privateQAProject.qaItems?.map((item) => ({
+        ...item,
+        progressLog: [
+          {
+            id: 'progress-codex-smoke',
+            createdAt: '2026-08-20T12:00:00.000Z',
+            status: 'passed',
+            author: 'Codex QA runner',
+            body: 'Codex browser smoke passed.\n\nActual result: Dashboard loaded and no critical error was visible.',
+            images: [
+              {
+                id: 'image-codex-smoke',
+                label: 'brief-automated-smoke.png',
+                type: 'screenshot',
+                path: 'local-private-evidence/brief-automated-smoke.png',
+                url: 'data:image/png;base64,iVBORw0KGgo=',
+              },
+            ],
+          },
+        ],
+      })) ?? [],
+    };
+
+    render(<ProjectQADashboard model={modelWithAutomatedProgress} autoLoad={false} />);
+
+    const item = screen.getByRole('heading', { name: 'Brief create smoke test' }).closest('article');
+    expect(item).not.toBeNull();
+    expect(within(item as HTMLElement).getByText(/Latest progress/i)).toBeInTheDocument();
+    expect(within(item as HTMLElement).getByText(/Codex browser smoke passed/i)).toBeInTheDocument();
+
+    await user.click(within(item as HTMLElement).getByRole('button', { name: 'Edit item' }));
+    const dialog = screen.getByRole('dialog', { name: 'Brief create smoke test' });
+
+    expect(within(dialog).getByText(/Actual result: Dashboard loaded/i)).toBeInTheDocument();
+    expect(within(dialog).getByRole('img', { name: 'brief-automated-smoke.png' })).toBeInTheDocument();
+    expect(within(dialog).getByText('local-private-evidence/brief-automated-smoke.png')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Open image brief-automated-smoke.png' }));
+    const gallery = screen.getByRole('dialog', { name: 'brief-automated-smoke.png' });
+    expect(within(gallery).getByRole('img', { name: 'brief-automated-smoke.png' })).toBeInTheDocument();
+
+    await user.click(within(gallery).getByRole('button', { name: 'Close image gallery' }));
+    expect(screen.queryByRole('dialog', { name: 'brief-automated-smoke.png' })).not.toBeInTheDocument();
+  });
 });

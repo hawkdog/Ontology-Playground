@@ -37,6 +37,7 @@ import {
 } from '../data/projectAnalysis';
 import { navigate } from '../lib/router';
 import { loadProjectAnalysisFromApi, saveProjectAnalysisToApi } from '../lib/projectAnalysisApi';
+import { ImageEvidenceGallery } from './ImageEvidenceGallery';
 
 interface ProjectQADashboardProps {
   model?: ProjectAnalysisModel;
@@ -1044,14 +1045,7 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
                 </div>
                 <input ref={progressImageInputRef} className="sr-only" type="file" accept="image/*" onChange={handleProgressImageUpload} aria-label="Upload QA progress image" />
                 {qaEditDraft.pendingImages.length > 0 && (
-                  <div className="analysis-image-strip">
-                    {qaEditDraft.pendingImages.map((image) => (
-                      <figure key={image.id}>
-                        {image.url && <img src={image.url} alt={image.label} />}
-                        <figcaption>{image.label}</figcaption>
-                      </figure>
-                    ))}
-                  </div>
+                  <ImageEvidenceGallery images={qaEditDraft.pendingImages} label="Pending QA image evidence" />
                 )}
               </section>
 
@@ -1067,14 +1061,7 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
                         {entry.status && <span>{entry.status}</span>}
                         <p>{entry.body}</p>
                         {(entry.images?.length ?? 0) > 0 && (
-                          <div className="analysis-image-strip">
-                            {entry.images?.map((image) => (
-                              <figure key={image.id}>
-                                {image.url && <img src={image.url} alt={image.label} />}
-                                <figcaption>{image.label}</figcaption>
-                              </figure>
-                            ))}
-                          </div>
+                          <ImageEvidenceGallery images={entry.images ?? []} label={`${entry.body} image evidence`} />
                         )}
                       </li>
                     ))}

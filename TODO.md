@@ -19,6 +19,7 @@
 - [x] Add tracker-style QA fields for blocker flags, results, next actions, source docs, and automation coverage.
 - [x] Move roadmap intake to a dedicated dashboard route with menu and command-palette access.
 - [x] Add roadmap-item promotion into active feature mapping.
+- [x] Add an in-app image evidence gallery for QA and roadmap progress screenshots.
 - [ ] Add automated roadmap-doc ingestion for feature and release visualization.
 - [ ] Add spreadsheet/roadmap import helpers that convert private QA trackers and roadmap markdown into project-analysis records.
 - [ ] Add ontology/RDF export for project-analysis models.

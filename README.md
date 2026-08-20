@@ -109,8 +109,10 @@ manual notes, mapped files, roadmap sources, and evidence attachments such as
 screenshots or local image paths. QA items can be linked to features and files
 while carrying tracker-style fields such as test ID, track, area, mode/tier,
 result, next action, MVP blocker, Stripe blocker, automation coverage, source
-document, and source section. Browser-session entries can be added from the
-dashboard and saved back to a private local database or exported as JSON.
+document, and source section. Progress entries can include screenshots that
+open in an in-app image gallery with saved path/source context. Browser-session
+entries can be added from the dashboard and saved back to a private local
+database or exported as JSON.
 
 ### Roadmap Dashboard
 
@@ -120,6 +122,8 @@ implementation work. Roadmap items can stay lightweight with source document,
 source section, phase, target, priority, repository, feature, and mapped-file
 fields. When an item is ready, the dashboard can promote it into an active
 feature while preserving the roadmap source link for later QA and file mapping.
+Roadmap progress entries support the same in-app image gallery for planning
+screenshots and evidence review.
 
 ### Command Palette & Keyboard Shortcuts
 

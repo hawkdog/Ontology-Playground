@@ -34,6 +34,7 @@ import {
 } from '../data/projectAnalysis';
 import { navigate } from '../lib/router';
 import { loadProjectAnalysisFromApi, saveProjectAnalysisToApi } from '../lib/projectAnalysisApi';
+import { ImageEvidenceGallery } from './ImageEvidenceGallery';
 
 interface ProjectRoadmapDashboardProps {
   model?: ProjectAnalysisModel;
@@ -1011,14 +1012,7 @@ export function ProjectRoadmapDashboard({ model, autoLoad = true }: ProjectRoadm
                 </div>
                 <input ref={progressImageInputRef} className="sr-only" type="file" accept="image/*" onChange={handleProgressImageUpload} aria-label="Upload roadmap progress image" />
                 {roadmapEditDraft.pendingImages.length > 0 && (
-                  <div className="analysis-image-strip">
-                    {roadmapEditDraft.pendingImages.map((image) => (
-                      <figure key={image.id}>
-                        {image.url && <img src={image.url} alt={image.label} />}
-                        <figcaption>{image.label}</figcaption>
-                      </figure>
-                    ))}
-                  </div>
+                  <ImageEvidenceGallery images={roadmapEditDraft.pendingImages} label="Pending roadmap image evidence" />
                 )}
               </section>
 
@@ -1034,14 +1028,7 @@ export function ProjectRoadmapDashboard({ model, autoLoad = true }: ProjectRoadm
                         {entry.status && <span>{roadmapStatusLabel(entry.status)}</span>}
                         <p>{entry.body}</p>
                         {(entry.images?.length ?? 0) > 0 && (
-                          <div className="analysis-image-strip">
-                            {entry.images?.map((image) => (
-                              <figure key={image.id}>
-                                {image.url && <img src={image.url} alt={image.label} />}
-                                <figcaption>{image.label}</figcaption>
-                              </figure>
-                            ))}
-                          </div>
+                          <ImageEvidenceGallery images={entry.images ?? []} label={`${entry.body} image evidence`} />
                         )}
                       </li>
                     ))}

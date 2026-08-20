@@ -1013,6 +1013,23 @@ export const sampleProjectAnalysis: ProjectAnalysisModel = {
           path: 'qa/screenshots/review-empty-state.png',
         },
       ],
+      progressLog: [
+        {
+          id: 'progress-review-empty-state-gallery',
+          createdAt: '2026-08-20T12:00:00.000Z',
+          status: 'needs-retest',
+          body: 'Added screenshot evidence so the team can inspect the review queue state in the QA gallery.',
+          images: [
+            {
+              id: 'review-empty-state-sample',
+              label: 'review-empty-state-sample.svg',
+              type: 'screenshot',
+              path: 'qa/screenshots/review-empty-state.png',
+              url: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22640%22 height=%22380%22 viewBox=%220 0 640 380%22%3E%3Crect width=%22640%22 height=%22380%22 fill=%22%231f1f1f%22/%3E%3Crect x=%2236%22 y=%2234%22 width=%22568%22 height=%22312%22 rx=%2212%22 fill=%22%232b2b2b%22 stroke=%22%23454545%22/%3E%3Ctext x=%2264%22 y=%2284%22 fill=%22%23f3f3f3%22 font-family=%22Arial%22 font-size=%2227%22 font-weight=%22700%22%3EReview Queue%3C/text%3E%3Ctext x=%2264%22 y=%22124%22 fill=%22%23bdbdbd%22 font-family=%22Arial%22 font-size=%2216%22%3ENo assets need review right now.%3C/text%3E%3Crect x=%2264%22 y=%22160%22 width=%22512%22 height=%2284%22 rx=%228%22 fill=%22%23363636%22/%3E%3Ctext x=%2292%22 y=%22208%22 fill=%22%238fc8ff%22 font-family=%22Arial%22 font-size=%2218%22%3EEmpty state screenshot evidence%3C/text%3E%3C/svg%3E',
+            },
+          ],
+        },
+      ],
     },
   ],
 };

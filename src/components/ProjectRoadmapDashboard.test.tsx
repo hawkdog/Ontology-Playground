@@ -56,6 +56,23 @@ const roadmapProject: ProjectAnalysisModel = {
       capabilityId: 'planning',
       repositoryIds: ['app'],
       fileRefs: ['app/research/import.tsx'],
+      progressLog: [
+        {
+          id: 'roadmap-progress-screenshot',
+          createdAt: '2026-08-20T12:00:00.000Z',
+          status: 'mvp',
+          body: 'Roadmap evidence captured from planning review.',
+          images: [
+            {
+              id: 'roadmap-image-evidence',
+              label: 'roadmap-planning-review.png',
+              type: 'screenshot',
+              path: 'local-private-evidence/roadmap-planning-review.png',
+              url: 'data:image/png;base64,iVBORw0KGgo=',
+            },
+          ],
+        },
+      ],
     },
   ],
   features: [],
@@ -121,5 +138,23 @@ describe('ProjectRoadmapDashboard', () => {
 
     expect(within(dialog).getByText('Confirmed this should stay in MVP intake.')).toBeInTheDocument();
     expect(screen.getByText(/Latest progress/i)).toBeInTheDocument();
+  });
+
+  it('opens roadmap progress screenshots in the image gallery', async () => {
+    const user = userEvent.setup();
+    render(<ProjectRoadmapDashboard model={roadmapProject} autoLoad={false} />);
+
+    const item = screen.getByRole('heading', { name: 'Research Import' }).closest('article');
+    expect(item).not.toBeNull();
+
+    await user.click(within(item as HTMLElement).getByRole('button', { name: 'Edit item' }));
+    const dialog = screen.getByRole('dialog', { name: 'Research Import' });
+
+    expect(within(dialog).getByText('roadmap-planning-review.png')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Open image roadmap-planning-review.png' }));
+
+    const gallery = screen.getByRole('dialog', { name: 'roadmap-planning-review.png' });
+    expect(within(gallery).getByRole('img', { name: 'roadmap-planning-review.png' })).toBeInTheDocument();
+    expect(within(gallery).getByText('local-private-evidence/roadmap-planning-review.png')).toBeInTheDocument();
   });
 });
