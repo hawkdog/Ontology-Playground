@@ -10,6 +10,9 @@ export type QAItemStatus = 'not-started' | 'ready' | 'in-progress' | 'partial' |
 export type QAItemPriority = 'low' | 'medium' | 'high' | 'critical' | 'support' | 'conditional' | 'future';
 export type QAItemType = 'task' | 'manual-test' | 'automated-test' | 'bug' | 'note' | 'decision' | 'evidence';
 export type QAAttachmentType = 'image' | 'screenshot' | 'document' | 'log' | 'link';
+export type MVPDecision = 'keep' | 'simplify' | 'defer' | 'cut' | 'needs-review';
+export type MVPSignoffStatus = 'not-started' | 'in-review' | 'approved' | 'rejected';
+export type MVPCutSafety = 'safe-to-cut' | 'do-not-cut-yet' | 'needs-review';
 
 export interface ProjectRepository {
   id: string;
@@ -56,6 +59,13 @@ export interface ProductFeature {
   fileStatuses?: Record<string, FileReferenceStatus>;
   roadmapSignals?: RoadmapSignal[];
   mvpNotes?: string[];
+  mvpDecision?: MVPDecision;
+  mvpNextAction?: string;
+  mvpOwner?: string;
+  mvpStatus?: string;
+  mvpSignoff?: MVPSignoffStatus;
+  mvpCutSafety?: MVPCutSafety;
+  mvpProgressLog?: ProjectProgressEntry[];
   dependencyIds?: string[];
 }
 
@@ -307,6 +317,27 @@ export const qaTypeLabels: Record<QAItemType, string> = {
   evidence: 'Evidence',
 };
 
+export const mvpDecisionLabels: Record<MVPDecision, string> = {
+  keep: 'Keep',
+  simplify: 'Simplify',
+  defer: 'Defer',
+  cut: 'Cut',
+  'needs-review': 'Needs review',
+};
+
+export const mvpSignoffLabels: Record<MVPSignoffStatus, string> = {
+  'not-started': 'Not started',
+  'in-review': 'In review',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
+
+export const mvpCutSafetyLabels: Record<MVPCutSafety, string> = {
+  'safe-to-cut': 'Safe to cut',
+  'do-not-cut-yet': 'Do not cut yet',
+  'needs-review': 'Needs review',
+};
+
 export function roadmapStatusLabel(status: string): string {
   if (status in roadmapStatusLabels) return roadmapStatusLabels[status as RoadmapSignalStatus];
   return status;
@@ -433,6 +464,36 @@ function normalizeRoadmapItemType(value: unknown): RoadmapItemType {
     return raw as RoadmapItemType;
   }
   return 'roadmap-item';
+}
+
+function normalizeMVPDecision(value: unknown): MVPDecision | undefined {
+  const raw = stringValue(value).trim().toLowerCase();
+  if (!raw) return undefined;
+  if (raw === 'remove' || raw === 'removed') return 'cut';
+  if (raw === 'review' || raw === 'needs review') return 'needs-review';
+  if (raw in mvpDecisionLabels) return raw as MVPDecision;
+  return undefined;
+}
+
+function normalizeMVPSignoff(value: unknown): MVPSignoffStatus | undefined {
+  const raw = stringValue(value).trim().toLowerCase();
+  if (!raw) return undefined;
+  if (raw === 'review' || raw === 'in review') return 'in-review';
+  if (raw === 'approve' || raw === 'signed-off' || raw === 'signed off') return 'approved';
+  if (raw === 'reject') return 'rejected';
+  if (raw in mvpSignoffLabels) return raw as MVPSignoffStatus;
+  return undefined;
+}
+
+function normalizeMVPCutSafety(value: unknown): MVPCutSafety | undefined {
+  if (typeof value === 'boolean') return value ? 'safe-to-cut' : 'needs-review';
+  const raw = stringValue(value).trim().toLowerCase();
+  if (!raw) return undefined;
+  if (raw === 'safe' || raw === 'safe to cut') return 'safe-to-cut';
+  if (raw === 'do not cut' || raw === 'do-not-cut' || raw === 'do not cut yet') return 'do-not-cut-yet';
+  if (raw === 'review' || raw === 'needs review') return 'needs-review';
+  if (raw in mvpCutSafetyLabels) return raw as MVPCutSafety;
+  return undefined;
 }
 
 function mapFileStatuses(featureStatuses: unknown, globalStatuses: UnknownRecord): Record<string, FileReferenceStatus> | undefined {
@@ -675,6 +736,15 @@ function mapFileMapFeatures(value: unknown, globalFileStatuses: UnknownRecord = 
       fileStatuses: mapFileStatuses(feature.fileStatuses, globalFileStatuses),
       roadmapSignals: mapRoadmapSignals(feature.roadmapSignals),
       mvpNotes: stringArray(feature.mvpNotes),
+      mvpDecision: normalizeMVPDecision(feature.mvpDecision ?? feature.finalMvpDecision),
+      mvpNextAction: flexibleValue(feature, ['mvpNextAction', 'nextAction', 'Next Action']),
+      mvpOwner: flexibleValue(feature, ['mvpOwner', 'owner', 'Owner']),
+      mvpStatus: flexibleValue(feature, ['mvpStatus', 'status', 'Status']),
+      mvpSignoff: normalizeMVPSignoff(feature.mvpSignoff ?? feature.signoff ?? feature.signOff),
+      mvpCutSafety: booleanValue(feature.doNotCut)
+        ? 'do-not-cut-yet'
+        : normalizeMVPCutSafety(feature.mvpCutSafety ?? feature.safeToCut),
+      mvpProgressLog: mapProgressLog(feature.mvpProgressLog ?? feature.progressLog ?? feature.history),
       dependencyIds: stringArray(feature.dependencies),
     };
   }).filter((feature) => feature.id);

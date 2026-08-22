@@ -34,6 +34,7 @@ import {
 } from '../data/projectAnalysis';
 import { navigate } from '../lib/router';
 import { loadProjectAnalysisFromApi, saveProjectAnalysisToApi } from '../lib/projectAnalysisApi';
+import { projectAnalysisSamplesEnabled } from '../lib/projectAnalysisSettings';
 import { ImageEvidenceGallery } from './ImageEvidenceGallery';
 
 interface ProjectRoadmapDashboardProps {
@@ -300,6 +301,7 @@ export function ProjectRoadmapDashboard({ model, autoLoad = true }: ProjectRoadm
     fileRef: '',
     note: '',
   });
+  const showSamples = projectAnalysisSamplesEnabled();
 
   useEffect(() => {
     if (model) setActiveModel(model);
@@ -597,10 +599,12 @@ export function ProjectRoadmapDashboard({ model, autoLoad = true }: ProjectRoadm
               <Upload size={16} />
               Import JSON
             </button>
-            <button className="analysis-card-toggle" type="button" onClick={() => setActiveModel(sampleProjectAnalysis)}>
-              <FileJson size={16} />
-              Load sample
-            </button>
+            {showSamples && (
+              <button className="analysis-card-toggle" type="button" onClick={() => setActiveModel(sampleProjectAnalysis)}>
+                <FileJson size={16} />
+                Load sample
+              </button>
+            )}
           </div>
           <input ref={fileInputRef} className="sr-only" type="file" accept="application/json,.json" onChange={handleImport} aria-label="Import roadmap project-analysis JSON" />
           {apiMessage && <p className="analysis-import-status">{apiMessage}</p>}

@@ -18,6 +18,8 @@ export { OntologySummaryModal } from './OntologySummaryModal';
 export { OntologyDesigner } from './OntologyDesigner';
 export { LearnPage } from './LearnPage';
 export { ProjectAnalyzer } from './ProjectAnalyzer';
+export { ProjectLayeredMap } from './ProjectLayeredMap';
+export { ProjectMVPReadinessDashboard } from './ProjectMVPReadinessDashboard';
 export { ProjectQADashboard } from './ProjectQADashboard';
 export { ProjectRoadmapDashboard } from './ProjectRoadmapDashboard';
 export { Toast } from './Toast';

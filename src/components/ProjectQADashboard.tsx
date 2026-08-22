@@ -37,6 +37,7 @@ import {
 } from '../data/projectAnalysis';
 import { navigate } from '../lib/router';
 import { loadProjectAnalysisFromApi, saveProjectAnalysisToApi } from '../lib/projectAnalysisApi';
+import { projectAnalysisSamplesEnabled } from '../lib/projectAnalysisSettings';
 import { ImageEvidenceGallery } from './ImageEvidenceGallery';
 
 interface ProjectQADashboardProps {
@@ -212,6 +213,7 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
     sourceDoc: '',
     sourceSection: '',
   });
+  const showSamples = projectAnalysisSamplesEnabled();
 
   useEffect(() => {
     if (model) setActiveModel(model);
@@ -537,10 +539,12 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
               <Upload size={16} />
               Import JSON
             </button>
-            <button className="analysis-card-toggle" type="button" onClick={() => setActiveModel(sampleProjectAnalysis)}>
-              <FileJson size={16} />
-              Load sample
-            </button>
+            {showSamples && (
+              <button className="analysis-card-toggle" type="button" onClick={() => setActiveModel(sampleProjectAnalysis)}>
+                <FileJson size={16} />
+                Load sample
+              </button>
+            )}
             <button className="analysis-card-toggle" type="button" onClick={() => navigate({ page: 'analysis' })}>
               <Network size={16} />
               Project Analyzer

@@ -10,6 +10,10 @@
 
 - [x] Add a generic project-analysis workspace with fictional sample data.
 - [x] Add local import for private project-analysis JSON files.
+- [x] Add a layered feature interaction map for capabilities, features, files, QA, and roadmap items.
+- [x] Add selected-node focus, connected-node highlighting, and map search controls.
+- [x] Add an MVP Readiness dashboard for ship status, blockers, QA gaps, mapping gaps, and next actions.
+- [x] Add editable MVP decision, sign-off, cut-safety, owner, next-action, and progress-log fields.
 - [x] Add file status labels for mapped, existing, planned, orphaned, and needs-review file mappings.
 - [x] Display imported roadmap-doc signals for feature and release visualization.
 - [x] Add QA task/note/evidence tracking linked to features and mapped files.
@@ -20,6 +24,8 @@
 - [x] Move roadmap intake to a dedicated dashboard route with menu and command-palette access.
 - [x] Add roadmap-item promotion into active feature mapping.
 - [x] Add an in-app image evidence gallery for QA and roadmap progress screenshots.
+- [x] Add the persistent Playground header to the project Analyzer, QA, and Roadmap dashboards.
+- [x] Add private-workspace flags to hide fictional sample loaders and auto-load the local database.
 - [ ] Add automated roadmap-doc ingestion for feature and release visualization.
 - [ ] Add spreadsheet/roadmap import helpers that convert private QA trackers and roadmap markdown into project-analysis records.
 - [ ] Add ontology/RDF export for project-analysis models.

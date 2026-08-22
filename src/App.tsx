@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense, type ReactNode } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { 
   Header, 
@@ -188,81 +188,24 @@ function App() {
     { id: 'theme', label: 'Switch Theme', icon: <Palette size={18} />, action: cycleTheme },
   ], [openGallery, openDesigner, openLearn, openAnalysis, openQA, openRoadmap, cycleTheme]);
 
-  // Full-page views
-  if (route.page === 'designer') {
-    return <OntologyDesigner route={route} />;
-  }
-  if (route.page === 'learn') {
-    return <LearnPage route={route} />;
-  }
-  if (route.page === 'analysis') {
-    return <ProjectAnalyzer />;
-  }
-  if (route.page === 'qa') {
-    return <ProjectQADashboard />;
-  }
-  if (route.page === 'roadmap') {
-    return <ProjectRoadmapDashboard />;
-  }
+  const headerProps = {
+    onAboutClick: () => setShowAbout(true),
+    onHelpClick: () => setShowHelp(true),
+    onDataSourcesClick: () => setShowDataSources(true),
+    onImportExportClick: () => setShowImportExport(true),
+    onGalleryClick: openGallery,
+    onDesignerClick: openDesigner,
+    onLearnClick: openLearn,
+    onAnalysisClick: openAnalysis,
+    onQAClick: openQA,
+    onRoadmapClick: openRoadmap,
+    onNLBuilderClick: AI_BUILDER_ENABLED ? () => setShowNLBuilder(true) : undefined,
+    onSummaryClick: () => setShowSummary(true),
+  };
 
-  return (
-    <div className={`app-container ${themeClass(theme)}`}>
-      <Header 
-        onAboutClick={() => setShowAbout(true)}
-        onHelpClick={() => setShowHelp(true)} 
-        onDataSourcesClick={() => setShowDataSources(true)}
-        onImportExportClick={() => setShowImportExport(true)}
-        onGalleryClick={openGallery}
-        onDesignerClick={openDesigner}
-        onLearnClick={openLearn}
-        onAnalysisClick={openAnalysis}
-        onQAClick={openQA}
-        onRoadmapClick={openRoadmap}
-        onNLBuilderClick={AI_BUILDER_ENABLED ? () => setShowNLBuilder(true) : undefined}
-        onSummaryClick={() => setShowSummary(true)}
-      />
-      <QuestPanel />
-      <OntologyGraph />
-      <div className="right-sidebar">
-        <OntologyStatsPanel />
-        <PathFinderPanel />
-        <SearchFilter />
-        <InspectorPanel />
-        <QueryPlayground />
-      </div>
-
-      {/* Mobile bottom tabs — visible only on small screens via CSS */}
-      <div className="mobile-panel-tabs">
-        <button className={`mobile-tab ${mobilePanel === 'graph' ? 'active' : ''}`} onClick={() => setMobilePanel('graph')}>
-          <Search size={18} /> Graph
-        </button>
-        <button className={`mobile-tab ${mobilePanel === 'quests' ? 'active' : ''}`} onClick={() => setMobilePanel('quests')}>
-          <Compass size={18} /> Quests
-        </button>
-        <button className={`mobile-tab ${mobilePanel === 'inspector' ? 'active' : ''}`} onClick={() => setMobilePanel('inspector')}>
-          <Info size={18} /> Inspector
-        </button>
-        <button className={`mobile-tab ${mobilePanel === 'query' ? 'active' : ''}`} onClick={() => setMobilePanel('query')}>
-          <MessageSquare size={18} /> Query
-        </button>
-      </div>
-
-      {/* Mobile panel drawer — visible only on small screens when a panel is selected */}
-      {mobilePanel !== 'graph' && (
-        <div className="mobile-panel-drawer">
-          <button className="mobile-panel-close" onClick={() => setMobilePanel('graph')}>✕ Close</button>
-          {mobilePanel === 'quests' && <QuestPanel />}
-          {mobilePanel === 'inspector' && (
-            <>
-              <SearchFilter />
-              <InspectorPanel />
-            </>
-          )}
-          {mobilePanel === 'query' && <QueryPlayground />}
-        </div>
-      )}
-
-      {showTour && (
+  const renderSharedOverlays = (includeTour: boolean) => (
+    <>
+      {includeTour && showTour && (
         <GuidedTour onComplete={() => { setShowTour(false); }} />
       )}
 
@@ -319,6 +262,81 @@ function App() {
           commands={commands}
         />
       </AnimatePresence>
+    </>
+  );
+
+  const renderProjectPage = (content: ReactNode) => (
+    <div className={`app-container app-container--single ${themeClass(theme)}`}>
+      <Header {...headerProps} />
+      <main className="app-single-page">
+        {content}
+      </main>
+      {renderSharedOverlays(false)}
+    </div>
+  );
+
+  // Full-page views
+  if (route.page === 'designer') {
+    return <OntologyDesigner route={route} />;
+  }
+  if (route.page === 'learn') {
+    return <LearnPage route={route} />;
+  }
+  if (route.page === 'analysis') {
+    return renderProjectPage(<ProjectAnalyzer />);
+  }
+  if (route.page === 'qa') {
+    return renderProjectPage(<ProjectQADashboard />);
+  }
+  if (route.page === 'roadmap') {
+    return renderProjectPage(<ProjectRoadmapDashboard />);
+  }
+
+  return (
+    <div className={`app-container ${themeClass(theme)}`}>
+      <Header {...headerProps} />
+      <QuestPanel />
+      <OntologyGraph />
+      <div className="right-sidebar">
+        <OntologyStatsPanel />
+        <PathFinderPanel />
+        <SearchFilter />
+        <InspectorPanel />
+        <QueryPlayground />
+      </div>
+
+      {/* Mobile bottom tabs — visible only on small screens via CSS */}
+      <div className="mobile-panel-tabs">
+        <button className={`mobile-tab ${mobilePanel === 'graph' ? 'active' : ''}`} onClick={() => setMobilePanel('graph')}>
+          <Search size={18} /> Graph
+        </button>
+        <button className={`mobile-tab ${mobilePanel === 'quests' ? 'active' : ''}`} onClick={() => setMobilePanel('quests')}>
+          <Compass size={18} /> Quests
+        </button>
+        <button className={`mobile-tab ${mobilePanel === 'inspector' ? 'active' : ''}`} onClick={() => setMobilePanel('inspector')}>
+          <Info size={18} /> Inspector
+        </button>
+        <button className={`mobile-tab ${mobilePanel === 'query' ? 'active' : ''}`} onClick={() => setMobilePanel('query')}>
+          <MessageSquare size={18} /> Query
+        </button>
+      </div>
+
+      {/* Mobile panel drawer — visible only on small screens when a panel is selected */}
+      {mobilePanel !== 'graph' && (
+        <div className="mobile-panel-drawer">
+          <button className="mobile-panel-close" onClick={() => setMobilePanel('graph')}>✕ Close</button>
+          {mobilePanel === 'quests' && <QuestPanel />}
+          {mobilePanel === 'inspector' && (
+            <>
+              <SearchFilter />
+              <InspectorPanel />
+            </>
+          )}
+          {mobilePanel === 'query' && <QueryPlayground />}
+        </div>
+      )}
+
+      {renderSharedOverlays(true)}
 
       <AppFooter />
     </div>

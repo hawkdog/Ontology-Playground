@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -8,6 +8,7 @@ import {
   Download,
   FileJson,
   FolderTree,
+  Gauge,
   GitBranch,
   Image,
   Layers3,
@@ -44,8 +45,11 @@ import {
 } from '../data/projectAnalysis';
 import { navigate } from '../lib/router';
 import { loadProjectAnalysisFromApi, saveProjectAnalysisToApi } from '../lib/projectAnalysisApi';
+import { projectAnalysisAutoLoadEnabled, projectAnalysisSamplesEnabled } from '../lib/projectAnalysisSettings';
+import { ProjectLayeredMap } from './ProjectLayeredMap';
+import { ProjectMVPReadinessDashboard } from './ProjectMVPReadinessDashboard';
 
-type AnalyzerView = 'features' | 'files' | 'qa' | 'dependencies' | 'roadmap';
+type AnalyzerView = 'map' | 'readiness' | 'features' | 'files' | 'qa' | 'dependencies' | 'roadmap';
 
 interface ProjectAnalyzerProps {
   model?: ProjectAnalysisModel;
@@ -143,7 +147,7 @@ function downloadProjectAnalysis(model: ProjectAnalysisModel): void {
 
 export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
   const [activeModel, setActiveModel] = useState<ProjectAnalysisModel | null>(model ? emptyModelCopy(model) : null);
-  const [view, setView] = useState<AnalyzerView>('features');
+  const [view, setView] = useState<AnalyzerView>('map');
   const [repositoryFilter, setRepositoryFilter] = useState(all);
   const [dispositionFilter, setDispositionFilter] = useState<typeof all | FeatureDisposition>(all);
   const [releaseFilter, setReleaseFilter] = useState(all);
@@ -153,6 +157,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
   const [importError, setImportError] = useState<string | null>(null);
   const [apiMessage, setApiMessage] = useState<string | null>(null);
   const [apiBusy, setApiBusy] = useState(false);
+  const autoLoadStartedRef = useRef(false);
   const [expandedFeatureId, setExpandedFeatureId] = useState<string | null>(null);
   const [qaDraft, setQADraft] = useState({
     title: '',
@@ -167,6 +172,34 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
   });
 
   const workingModel = activeModel;
+  const showSamples = projectAnalysisSamplesEnabled();
+
+  useEffect(() => {
+    if (model || activeModel || autoLoadStartedRef.current || !projectAnalysisAutoLoadEnabled()) return;
+
+    let cancelled = false;
+    autoLoadStartedRef.current = true;
+    setApiBusy(true);
+    setApiMessage('Loading private database map...');
+    loadProjectAnalysisFromApi()
+      .then((loaded) => {
+        if (cancelled) return;
+        setActiveModel(loaded);
+        setImportError(null);
+        setApiMessage('Loaded private database map.');
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setApiMessage(error instanceof Error ? error.message : 'Unable to load the private database map.');
+      })
+      .finally(() => {
+        if (!cancelled) setApiBusy(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeModel, model]);
 
   const repositoryById = useMemo(
     () => new Map(workingModel?.repositories.map((repo) => [repo.id, repo]) ?? []),
@@ -243,7 +276,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       setActiveModel(imported);
       setImportError(null);
       setApiMessage(null);
-      setView('features');
+      setView('map');
       setRepositoryFilter(all);
       setDispositionFilter(all);
       setReleaseFilter(all);
@@ -262,7 +295,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     setActiveModel(emptyModelCopy({ ...sampleProjectAnalysis, sourceLabel: 'Fictional sample' }));
     setImportError(null);
     setApiMessage(null);
-    setView('features');
+    setView('map');
     setExpandedFeatureId(null);
     setQAStatusFilter(all);
     setQATypeFilter(all);
@@ -289,7 +322,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       setActiveModel(loaded);
       setImportError(null);
       setApiMessage('Loaded private database map.');
-      setView('qa');
+      setView('map');
       setRepositoryFilter(all);
       setDispositionFilter(all);
       setReleaseFilter(all);
@@ -357,6 +390,16 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     });
   };
 
+  const updateFeature = (featureId: string, updates: Partial<ProductFeature>) => {
+    if (!workingModel) return;
+    setActiveModel({
+      ...workingModel,
+      features: workingModel.features.map((feature) => (
+        feature.id === featureId ? { ...feature, ...updates } : feature
+      )),
+    });
+  };
+
   if (!workingModel) {
     return (
       <div className="analysis-page analysis-page--empty">
@@ -374,10 +417,12 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
               Import JSON
               <input aria-label="Import project-analysis JSON" type="file" accept="application/json,.json" onChange={handleImport} />
             </label>
-            <button className="analysis-secondary-button" type="button" onClick={loadSample}>
-              <FileJson size={18} />
-              Load sample
-            </button>
+            {showSamples && (
+              <button className="analysis-secondary-button" type="button" onClick={loadSample}>
+                <FileJson size={18} />
+                Load sample
+              </button>
+            )}
             <button className="analysis-secondary-button" type="button" onClick={loadFromDatabase} disabled={apiBusy}>
               <Network size={18} />
               Load private DB
@@ -448,7 +493,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
 
       <section className="analysis-toolbar" aria-label="Project analysis filters">
         <div className="analysis-tabs" role="tablist" aria-label="Analysis views">
-          {(['features', 'files', 'dependencies', 'roadmap'] as AnalyzerView[]).map((candidate) => (
+          {(['map', 'readiness', 'features', 'files', 'dependencies', 'roadmap', 'qa'] as AnalyzerView[]).map((candidate) => (
             <button
               key={candidate}
               className={`analysis-tab ${view === candidate ? 'active' : ''}`}
@@ -457,11 +502,14 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
               role="tab"
               aria-selected={view === candidate}
             >
+              {candidate === 'map' && <Network size={16} />}
+              {candidate === 'readiness' && <Gauge size={16} />}
               {candidate === 'features' && <Layers3 size={16} />}
               {candidate === 'files' && <FolderTree size={16} />}
               {candidate === 'dependencies' && <Network size={16} />}
               {candidate === 'roadmap' && <Milestone size={16} />}
-              {candidate[0].toUpperCase() + candidate.slice(1)}
+              {candidate === 'qa' && <ClipboardCheck size={16} />}
+              {candidate === 'qa' ? 'QA' : candidate === 'readiness' ? 'MVP Readiness' : candidate[0].toUpperCase() + candidate.slice(1)}
             </button>
           ))}
         </div>
@@ -521,6 +569,23 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
 
       {importError && <p className="analysis-import-error">{importError}</p>}
       {apiMessage && <p className="analysis-api-message">{apiMessage}</p>}
+
+      {view === 'map' && (
+        <ProjectLayeredMap
+          model={workingModel}
+          features={filteredFeatures}
+          selectedFeatureId={expandedFeatureId}
+        />
+      )}
+
+      {view === 'readiness' && (
+        <ProjectMVPReadinessDashboard
+          model={workingModel}
+          features={filteredFeatures}
+          onSelectFeature={setExpandedFeatureId}
+          onUpdateFeature={updateFeature}
+        />
+      )}
 
       {view === 'features' && (
         <main className="analysis-grid" aria-label="Feature analysis">

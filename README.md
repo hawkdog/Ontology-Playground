@@ -95,12 +95,25 @@ NL2Ontology capability.
 
 A generic product-analysis workspace (`/#/analysis`) for mapping repositories,
 capabilities, features, mapped files, dependencies, MVP disposition, and release
-timing. The screen starts from a local JSON import so private product maps can
-stay outside this public repository. File references can carry local status
-labels such as mapped, existing, planned, orphan, and needs review, and features
-can include roadmap signals from local planning docs. Local deployments can
-also connect to a private Project Analyzer API for Load DB / Save DB workflows.
-The included sample is fictional and exists only to demonstrate the workflow.
+timing. The default view is a layered interaction map that connects capabilities,
+features, components, files, QA items, and roadmap items so teams can inspect
+feature impact before slimming or rebuilding work. Selecting a map node focuses
+its immediate network, dims unrelated items, and can collapse the canvas to only
+the selected item's connected nodes. The project dashboards keep the persistent
+Playground header available for moving between Analyzer, QA, Roadmap, catalogue,
+and ontology tools. The Analyzer also includes an MVP Readiness tab that turns
+the same model into a ship-decision board with readiness percentage, QA gaps,
+mapping gaps, blockers, future-release items, and next actions. Readiness cards
+can record the final MVP decision, owner, status, sign-off, cut-safety state,
+saved next action, and dated progress notes before teams make branch changes.
+The screen starts from a local JSON import or, when enabled for a private local
+workspace, auto-loads the local Project Analyzer database so private product
+maps can stay outside this public repository. File references can carry local
+status labels such as mapped, existing, planned, orphan, and needs review, and
+features can include roadmap signals from local planning docs. Local deployments
+can also connect to a private Project Analyzer API for Load DB / Save DB
+workflows. The included sample is fictional, can be hidden with an environment
+flag, and exists only to demonstrate the workflow.
 
 ### QA Dashboard
 
@@ -250,6 +263,8 @@ GitHub Pages build so asset paths resolve correctly.
 | `VITE_GITHUB_CLIENT_ID` | *(empty)* | GitHub OAuth App client ID for one-click catalogue PRs ([setup guide](docs/github-oauth-setup.md)) |
 | `VITE_GITHUB_OAUTH_BASE` | *(empty)* | External OAuth proxy URL for GitHub Pages deployments (e.g. Cloudflare Worker URL) |
 | `VITE_PROJECT_ANALYSIS_API_URL` | `http://localhost:3008` | Optional private Project Analyzer API used by the local Load DB / Save DB controls |
+| `VITE_PROJECT_ANALYSIS_SHOW_SAMPLES` | `true` | Set to `false` in local private workspaces to hide fictional Project Analyzer sample loaders |
+| `VITE_PROJECT_ANALYSIS_AUTO_LOAD` | `false` | Set to `true` in local private workspaces to load the private Project Analyzer database on page open |
 
 ## Project Structure
 
