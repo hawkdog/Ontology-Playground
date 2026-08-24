@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
+  Bot,
   Bug,
   ClipboardCheck,
   Database,
@@ -39,13 +40,14 @@ import { navigate } from '../lib/router';
 import { loadProjectAnalysisFromApi, saveProjectAnalysisToApi } from '../lib/projectAnalysisApi';
 import { projectAnalysisSamplesEnabled } from '../lib/projectAnalysisSettings';
 import { ImageEvidenceGallery } from './ImageEvidenceGallery';
+import { ProjectQATestabilityReport } from './ProjectQATestabilityReport';
 
 interface ProjectQADashboardProps {
   model?: ProjectAnalysisModel;
   autoLoad?: boolean;
 }
 
-type QueueView = 'active' | 'blockers' | 'mvp' | 'stripe' | 'future' | 'all';
+type QueueView = 'active' | 'testability' | 'blockers' | 'mvp' | 'stripe' | 'future' | 'all';
 
 const all = 'all';
 const qaStatusOrder: QAItemStatus[] = ['failed', 'blocked', 'needs-retest', 'partial', 'in-progress', 'ready', 'not-started', 'passed', 'deferred', 'future'];
@@ -275,6 +277,7 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
       if (featureFilter !== all && !item.featureIds.includes(featureFilter)) return false;
       if (repoFilter !== all && !itemRepos.has(repoFilter)) return false;
 
+      if (queueView === 'testability') return true;
       if (queueView === 'active' && !isOpenQA(item)) return false;
       if (queueView === 'blockers' && item.status !== 'blocked' && item.status !== 'failed' && !yesFlag(item.blocking)) return false;
       if (queueView === 'mvp' && !yesFlag(item.mvpBlocker)) return false;
@@ -619,6 +622,7 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
         <div className="analysis-tabs" role="tablist" aria-label="QA views">
           {([
             ['active', 'Active'],
+            ['testability', 'Testability'],
             ['blockers', 'Blockers'],
             ['mvp', 'MVP'],
             ['stripe', 'Stripe'],
@@ -633,7 +637,7 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
               role="tab"
               aria-selected={queueView === candidate}
             >
-              {candidate === 'blockers' ? <ShieldAlert size={16} /> : <ClipboardCheck size={16} />}
+              {candidate === 'testability' ? <Bot size={16} /> : candidate === 'blockers' ? <ShieldAlert size={16} /> : <ClipboardCheck size={16} />}
               {label}
             </button>
           ))}
@@ -667,6 +671,15 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
         </div>
       )}
 
+      {queueView === 'testability' ? (
+        <ProjectQATestabilityReport
+          model={workingModel}
+          qaItems={filteredQAItems}
+          featureById={featureById}
+          repoById={repoById}
+          onOpenItem={openQAEditor}
+        />
+      ) : (
       <main className="analysis-qa-layout analysis-qa-dashboard-layout" aria-label="QA tracking dashboard">
         <section className="analysis-qa-main">
           <section className="analysis-status-strip" aria-label="QA status counts">
@@ -928,6 +941,7 @@ export function ProjectQADashboard({ model, autoLoad = true }: ProjectQADashboar
           </section>
         </aside>
       </main>
+      )}
 
       {selectedQAItem && qaEditDraft && (
         <div className="analysis-modal-backdrop" role="presentation" onClick={closeQAEditor}>

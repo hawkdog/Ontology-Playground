@@ -14,6 +14,7 @@
 - [x] Add selected-node focus, connected-node highlighting, and map search controls.
 - [x] Add an MVP Readiness dashboard for ship status, blockers, QA gaps, mapping gaps, and next actions.
 - [x] Add editable MVP decision, sign-off, cut-safety, owner, next-action, and progress-log fields.
+- [x] Add a Work Queue that orders blockers, testing, mapping, review, backlog, and scope decisions.
 - [x] Add file status labels for mapped, existing, planned, orphaned, and needs-review file mappings.
 - [x] Display imported roadmap-doc signals for feature and release visualization.
 - [x] Add QA task/note/evidence tracking linked to features and mapped files.
@@ -26,8 +27,25 @@
 - [x] Add an in-app image evidence gallery for QA and roadmap progress screenshots.
 - [x] Add the persistent Playground header to the project Analyzer, QA, and Roadmap dashboards.
 - [x] Add private-workspace flags to hide fictional sample loaders and auto-load the local database.
+- [x] Add markdown document tracking for setup notes, audit context, roadmaps, security checklists, and decision records.
+- [x] Add automated markdown document discovery and summary extraction for private project maps.
+- [x] Add dedicated work-item records for docs, audits, roadmap items, QA gaps, and MCP platform tasks.
+- [x] Add one-click work-item creation from MD Docs, roadmap items, QA gaps, and audit findings.
+- [x] Add queue filters for work-item type, owner, priority, and source.
+- [x] Add saved queue views and batch planning for recurring MCP, audit, security, docs, and feature-scope work.
+- [x] Add batch templates that create prepared work runs from selected docs, QA items, roadmap records, and MCP milestones.
+- [x] Add in-app batch template editing and source preview selection before creating work runs.
+- [x] Add in-app creation and duplication of reusable batch templates.
+- [x] Add reusable batch-template deletion/archive controls with guardrails for templates that already created work.
+- [x] Add batch-template run history and last-run metadata.
+- [x] Add batch-template run detail drilldown with generated work item links.
+- [x] Add batch-template run notes and outcome scoring.
+- [ ] Add batch-template run comparison views for repeated operations.
 - [ ] Add automated roadmap-doc ingestion for feature and release visualization.
 - [ ] Add spreadsheet/roadmap import helpers that convert private QA trackers and roadmap markdown into project-analysis records.
+- [x] Add a QA testability/dependency report that classifies manual-only, AI-assisted, and automation-ready test items.
+- [x] Add a local QA runtime scanner that stores installed tools, scripts, configured URLs, and endpoint readiness in the private project map.
+- [x] Add a local QA result recorder that appends dated progress entries and evidence paths to private QA items.
 - [ ] Add ontology/RDF export for project-analysis models.
 
 ---

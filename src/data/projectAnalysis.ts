@@ -10,9 +10,20 @@ export type QAItemStatus = 'not-started' | 'ready' | 'in-progress' | 'partial' |
 export type QAItemPriority = 'low' | 'medium' | 'high' | 'critical' | 'support' | 'conditional' | 'future';
 export type QAItemType = 'task' | 'manual-test' | 'automated-test' | 'bug' | 'note' | 'decision' | 'evidence';
 export type QAAttachmentType = 'image' | 'screenshot' | 'document' | 'log' | 'link';
+export type MarkdownDocumentStatus = 'draft' | 'active' | 'needs-review' | 'aligned' | 'stale' | 'archived';
+export type MarkdownDocumentPurpose = 'architecture' | 'setup' | 'roadmap' | 'audit' | 'qa' | 'security' | 'runbook' | 'decision' | 'reference' | 'other';
+export type MarkdownDocumentSensitivity = 'public' | 'internal' | 'private' | 'secret-free-summary';
+export type ProjectWorkItemStatus = 'todo' | 'ready' | 'in-progress' | 'blocked' | 'review' | 'done' | 'deferred';
+export type ProjectWorkItemType = 'mcp' | 'audit' | 'schema' | 'security' | 'qa' | 'doc' | 'roadmap' | 'feature' | 'integration' | 'task';
+export type ProjectWorkItemPriority = 'low' | 'medium' | 'high' | 'critical';
+export type ProjectQueueViewStage = 'blocked' | 'qa' | 'mapping' | 'signoff' | 'ready' | 'slimming' | 'backlog';
+export type ProjectQueueViewType = ProjectWorkItemType | 'feature-derived';
+export type ProjectBatchTemplateSource = 'markdown-documents' | 'qa-items' | 'roadmap-items' | 'roadmap-sources' | 'features';
 export type MVPDecision = 'keep' | 'simplify' | 'defer' | 'cut' | 'needs-review';
 export type MVPSignoffStatus = 'not-started' | 'in-review' | 'approved' | 'rejected';
 export type MVPCutSafety = 'safe-to-cut' | 'do-not-cut-yet' | 'needs-review';
+export type TestingRuntimeStatus = 'available' | 'missing' | 'needs-confirmation' | 'error';
+export type TestingToolCategory = 'runtime' | 'package-manager' | 'browser' | 'unit-test' | 'e2e-test' | 'wordpress' | 'docker' | 'quality' | 'database' | 'other';
 
 export interface ProjectRepository {
   id: string;
@@ -165,6 +176,124 @@ export interface QAItem {
   isCurrent?: boolean;
 }
 
+export interface MarkdownDocument {
+  id: string;
+  title: string;
+  path: string;
+  purpose: MarkdownDocumentPurpose;
+  status: MarkdownDocumentStatus;
+  summary: string;
+  repositoryIds?: string[];
+  featureIds?: string[];
+  sourceSection?: string;
+  owner?: string;
+  sensitivity?: MarkdownDocumentSensitivity;
+  lastReviewedAt?: string;
+  updatedAt?: string;
+  tags?: string[];
+  alignmentTargets?: string[];
+  auditFindings?: string[];
+  bodyDraft?: string;
+}
+
+export interface ProjectWorkItem {
+  id: string;
+  title: string;
+  type: ProjectWorkItemType;
+  status: ProjectWorkItemStatus;
+  priority: ProjectWorkItemPriority;
+  summary: string;
+  nextAction?: string;
+  owner?: string;
+  due?: string;
+  source?: string;
+  sourceId?: string;
+  sourcePath?: string;
+  featureIds?: string[];
+  repositoryIds?: string[];
+  markdownDocumentIds?: string[];
+  qaItemIds?: string[];
+  roadmapItemIds?: string[];
+  tags?: string[];
+  acceptanceCriteria?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  progressLog?: ProjectProgressEntry[];
+}
+
+export interface ProjectQueueViewFilters {
+  stage?: ProjectQueueViewStage | 'all';
+  type?: ProjectQueueViewType | 'all';
+  owner?: string;
+  priority?: ProjectWorkItemPriority | 'all';
+  source?: string;
+  search?: string;
+}
+
+export interface ProjectQueueView {
+  id: string;
+  name: string;
+  summary: string;
+  filters: ProjectQueueViewFilters;
+  owner?: string;
+  cadence?: string;
+  outcome?: string;
+  source?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProjectBatchTemplateFilters {
+  documentPurpose?: MarkdownDocumentPurpose | 'all';
+  documentStatus?: MarkdownDocumentStatus | 'all';
+  alignmentTarget?: string;
+  qaStatus?: QAItemStatus | 'all';
+  qaPriority?: QAItemPriority | 'all';
+  roadmapStatus?: string;
+  featureReleaseId?: string;
+  featureDisposition?: FeatureDisposition | 'all';
+  tag?: string;
+  sourceIncludes?: string;
+}
+
+export interface ProjectBatchTemplateRun {
+  id: string;
+  ranAt: string;
+  sourceCount: number;
+  createdWorkItemCount: number;
+  createdWorkItemIds: string[];
+  sourceTitles: string[];
+  summary: string;
+  outcomeScore?: number;
+  outcomeNotes?: string;
+  reviewedAt?: string;
+}
+
+export interface ProjectBatchTemplate {
+  id: string;
+  name: string;
+  summary: string;
+  sourceType: ProjectBatchTemplateSource;
+  workItemType: ProjectWorkItemType;
+  priority: ProjectWorkItemPriority;
+  titlePrefix: string;
+  nextAction: string;
+  owner?: string;
+  source?: string;
+  tags?: string[];
+  filters?: ProjectBatchTemplateFilters;
+  cadence?: string;
+  outcome?: string;
+  archivedAt?: string;
+  lastRunAt?: string;
+  lastRunItemCount?: number;
+  lastRunSourceCount?: number;
+  lastRunWorkItemIds?: string[];
+  runHistory?: ProjectBatchTemplateRun[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface CodeComponentReference {
   id: string;
   name: string;
@@ -180,6 +309,47 @@ export interface FeatureDependency {
   toFeatureId: string;
   type: DependencyType | string;
   description: string;
+}
+
+export interface TestingToolSignal {
+  id: string;
+  label: string;
+  category: TestingToolCategory;
+  status: TestingRuntimeStatus;
+  summary: string;
+  version?: string;
+  command?: string;
+  path?: string;
+}
+
+export interface TestingRuntimeEndpoint {
+  id: string;
+  label: string;
+  url: string;
+  status: TestingRuntimeStatus;
+  summary: string;
+  statusCode?: number;
+}
+
+export interface TestingRuntimeRepository {
+  repositoryId: string;
+  name: string;
+  path: string;
+  packageManager?: string;
+  scripts?: string[];
+  tools?: string[];
+}
+
+export interface ProjectTestingRuntimeScan {
+  schemaVersion: 'project-analysis.testing-runtime.v1';
+  scannerVersion: string;
+  scannedAt: string;
+  workspaceRoot?: string;
+  mapId?: string;
+  tools: TestingToolSignal[];
+  endpoints: TestingRuntimeEndpoint[];
+  repositories: TestingRuntimeRepository[];
+  notes: string[];
 }
 
 export interface ProjectAnalysisModel {
@@ -198,9 +368,14 @@ export interface ProjectAnalysisModel {
   roadmapSources?: RoadmapSignal[];
   roadmapItems?: RoadmapItem[];
   qaItems?: QAItem[];
+  markdownDocuments?: MarkdownDocument[];
+  workItems?: ProjectWorkItem[];
+  queueViews?: ProjectQueueView[];
+  batchTemplates?: ProjectBatchTemplate[];
   doNotCutBeforeChecks?: string[];
   openQuestions?: string[];
   firstSlimmingCandidates?: { featureId: string; suggestedAction: string; why: string }[];
+  testingRuntime?: ProjectTestingRuntimeScan;
 }
 
 export const dispositionLabels: Record<FeatureDisposition, string> = {
@@ -315,6 +490,92 @@ export const qaTypeLabels: Record<QAItemType, string> = {
   note: 'Note',
   decision: 'Decision',
   evidence: 'Evidence',
+};
+
+export const markdownDocumentStatusLabels: Record<MarkdownDocumentStatus, string> = {
+  draft: 'Draft',
+  active: 'Active',
+  'needs-review': 'Needs review',
+  aligned: 'Aligned',
+  stale: 'Stale',
+  archived: 'Archived',
+};
+
+export const markdownDocumentStatusColors: Record<MarkdownDocumentStatus, string> = {
+  draft: '#605E5C',
+  active: '#0078D4',
+  'needs-review': '#C19C00',
+  aligned: '#107C10',
+  stale: '#D83B01',
+  archived: '#8764B8',
+};
+
+export const markdownDocumentPurposeLabels: Record<MarkdownDocumentPurpose, string> = {
+  architecture: 'Architecture',
+  setup: 'Setup',
+  roadmap: 'Roadmap',
+  audit: 'Audit',
+  qa: 'QA',
+  security: 'Security',
+  runbook: 'Runbook',
+  decision: 'Decision',
+  reference: 'Reference',
+  other: 'Other',
+};
+
+export const markdownDocumentSensitivityLabels: Record<MarkdownDocumentSensitivity, string> = {
+  public: 'Public',
+  internal: 'Internal',
+  private: 'Private',
+  'secret-free-summary': 'Secret-free summary',
+};
+
+export const projectWorkItemStatusLabels: Record<ProjectWorkItemStatus, string> = {
+  todo: 'To do',
+  ready: 'Ready',
+  'in-progress': 'In progress',
+  blocked: 'Blocked',
+  review: 'Review',
+  done: 'Done',
+  deferred: 'Deferred',
+};
+
+export const projectWorkItemStatusColors: Record<ProjectWorkItemStatus, string> = {
+  todo: '#605E5C',
+  ready: '#008272',
+  'in-progress': '#0078D4',
+  blocked: '#D13438',
+  review: '#8764B8',
+  done: '#107C10',
+  deferred: '#C19C00',
+};
+
+export const projectWorkItemTypeLabels: Record<ProjectWorkItemType, string> = {
+  mcp: 'MCP',
+  audit: 'Audit',
+  schema: 'Schema/API',
+  security: 'Security',
+  qa: 'QA',
+  doc: 'Docs',
+  roadmap: 'Roadmap',
+  feature: 'Feature',
+  integration: 'Integration',
+  task: 'Task',
+};
+
+export const projectWorkItemPriorityLabels: Record<ProjectWorkItemPriority, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  critical: 'Critical',
+};
+
+export const projectBatchTemplateSourceLabels: Record<ProjectBatchTemplateSource, string> = {
+  'markdown-documents': 'MD Docs',
+  'qa-items': 'QA Items',
+  'roadmap-items': 'Roadmap Items',
+  'roadmap-sources': 'Roadmap Sources',
+  features: 'Features',
 };
 
 export const mvpDecisionLabels: Record<MVPDecision, string> = {
@@ -443,6 +704,99 @@ function normalizeQAType(value: unknown): QAItemType {
   return 'task';
 }
 
+function normalizeMarkdownDocumentStatus(value: unknown): MarkdownDocumentStatus {
+  const raw = stringValue(value, 'draft').trim().toLowerCase();
+  if (raw === 'review' || raw === 'needs review') return 'needs-review';
+  if (raw === 'current' || raw === 'in-use') return 'active';
+  if (raw === 'done' || raw === 'complete' || raw === 'approved') return 'aligned';
+  if (raw in markdownDocumentStatusLabels) return raw as MarkdownDocumentStatus;
+  return 'draft';
+}
+
+function normalizeMarkdownDocumentPurpose(value: unknown): MarkdownDocumentPurpose {
+  const raw = stringValue(value, 'reference').trim().toLowerCase();
+  if (raw === 'security-audit' || raw === 'review') return 'audit';
+  if (raw === 'testing' || raw === 'test') return 'qa';
+  if (['architecture', 'setup', 'roadmap', 'audit', 'qa', 'security', 'runbook', 'decision', 'reference', 'other'].includes(raw)) {
+    return raw as MarkdownDocumentPurpose;
+  }
+  return 'reference';
+}
+
+function normalizeMarkdownDocumentSensitivity(value: unknown): MarkdownDocumentSensitivity | undefined {
+  const raw = stringValue(value).trim().toLowerCase();
+  if (!raw) return undefined;
+  if (raw === 'sanitized' || raw === 'redacted' || raw === 'secret-free') return 'secret-free-summary';
+  if (['public', 'internal', 'private', 'secret-free-summary'].includes(raw)) return raw as MarkdownDocumentSensitivity;
+  return undefined;
+}
+
+function normalizeProjectWorkItemStatus(value: unknown): ProjectWorkItemStatus {
+  const raw = stringValue(value, 'todo').trim().toLowerCase();
+  if (raw === 'not-started' || raw === 'backlog') return 'todo';
+  if (raw === 'active' || raw === 'started' || raw === 'current') return 'in-progress';
+  if (raw === 'in progress') return 'in-progress';
+  if (raw === 'needs-review' || raw === 'in-review' || raw === 'signoff') return 'review';
+  if (raw === 'complete' || raw === 'completed' || raw === 'passed') return 'done';
+  if (raw in projectWorkItemStatusLabels) return raw as ProjectWorkItemStatus;
+  return 'todo';
+}
+
+function normalizeProjectWorkItemType(value: unknown): ProjectWorkItemType {
+  const raw = stringValue(value, 'task').trim().toLowerCase();
+  if (raw === 'api' || raw === 'database') return 'schema';
+  if (raw === 'docs' || raw === 'document') return 'doc';
+  if (raw === 'wordpress' || raw === 'plugin') return 'integration';
+  if (['mcp', 'audit', 'schema', 'security', 'qa', 'doc', 'roadmap', 'feature', 'integration', 'task'].includes(raw)) {
+    return raw as ProjectWorkItemType;
+  }
+  return 'task';
+}
+
+function normalizeProjectWorkItemPriority(value: unknown): ProjectWorkItemPriority {
+  const raw = stringValue(value, 'medium').trim().toLowerCase();
+  if (raw === 'p0' || raw === 'blocker') return 'critical';
+  if (raw === 'p1') return 'high';
+  if (raw === 'p2') return 'medium';
+  if (raw === 'p3') return 'low';
+  if (raw in projectWorkItemPriorityLabels) return raw as ProjectWorkItemPriority;
+  return 'medium';
+}
+
+function normalizeProjectQueueViewStage(value: unknown): ProjectQueueViewStage | 'all' {
+  const raw = stringValue(value, 'all').trim().toLowerCase();
+  if (raw === 'test' || raw === 'test/retest' || raw === 'retest') return 'qa';
+  if (raw === 'review') return 'signoff';
+  if (raw === 'scope' || raw === 'scope-decision') return 'slimming';
+  if (['blocked', 'qa', 'mapping', 'signoff', 'ready', 'slimming', 'backlog'].includes(raw)) {
+    return raw as ProjectQueueViewStage;
+  }
+  return 'all';
+}
+
+function normalizeProjectQueueViewType(value: unknown): ProjectQueueViewType | 'all' {
+  const raw = stringValue(value, 'all').trim().toLowerCase();
+  if (raw === 'feature-map' || raw === 'feature queue') return 'feature-derived';
+  if (raw === 'api' || raw === 'database') return 'schema';
+  if (raw === 'docs' || raw === 'document') return 'doc';
+  if (raw === 'wordpress' || raw === 'plugin') return 'integration';
+  if (['mcp', 'audit', 'schema', 'security', 'qa', 'doc', 'roadmap', 'feature', 'feature-derived', 'integration', 'task'].includes(raw)) {
+    return raw as ProjectQueueViewType;
+  }
+  return 'all';
+}
+
+function normalizeProjectBatchTemplateSource(value: unknown): ProjectBatchTemplateSource {
+  const raw = stringValue(value, 'markdown-documents').trim().toLowerCase();
+  if (raw === 'docs' || raw === 'documents' || raw === 'markdown' || raw === 'md-docs') return 'markdown-documents';
+  if (raw === 'qa' || raw === 'tests' || raw === 'test') return 'qa-items';
+  if (raw === 'roadmap' || raw === 'roadmap-item') return 'roadmap-items';
+  if (raw === 'roadmap-source' || raw === 'roadmap-sources') return 'roadmap-sources';
+  if (raw === 'feature' || raw === 'features') return 'features';
+  if (raw in projectBatchTemplateSourceLabels) return raw as ProjectBatchTemplateSource;
+  return 'markdown-documents';
+}
+
 function normalizeRoadmapStatus(value: unknown): RoadmapSignalStatus {
   const raw = stringValue(value, 'needs-review').trim().toLowerCase();
   if (raw === 'todo' || raw === 'backlog') return 'planned';
@@ -552,6 +906,160 @@ function mapRoadmapItems(value: unknown): RoadmapItem[] {
       progressLog: mapProgressLog(item.progressLog ?? item.history ?? item.testLog),
     };
   }).filter((item) => item.title && item.summary);
+}
+
+function mapMarkdownDocuments(value: unknown): MarkdownDocument[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((doc, index) => {
+    const title = stringValue(doc.title, stringValue(doc.name, `Markdown document ${index + 1}`));
+    const path = stringValue(doc.path, stringValue(doc.file, stringValue(doc.fileRef)));
+    return {
+      id: stringValue(doc.id, `md-doc-${index + 1}`),
+      title,
+      path,
+      purpose: normalizeMarkdownDocumentPurpose(doc.purpose ?? doc.type),
+      status: normalizeMarkdownDocumentStatus(doc.status),
+      summary: stringValue(doc.summary, stringValue(doc.description, Array.isArray(doc.notes) ? '' : stringValue(doc.notes))),
+      repositoryIds: stringArray(doc.repositoryIds ?? doc.repositories),
+      featureIds: stringArray(doc.featureIds ?? doc.features ?? doc.linkedFeatureIds),
+      sourceSection: flexibleValue(doc, ['sourceSection', 'section', 'heading']),
+      owner: stringValue(doc.owner),
+      sensitivity: normalizeMarkdownDocumentSensitivity(doc.sensitivity ?? doc.visibility),
+      lastReviewedAt: flexibleValue(doc, ['lastReviewedAt', 'reviewedAt', 'lastReviewed']),
+      updatedAt: flexibleValue(doc, ['updatedAt', 'modifiedAt', 'date']),
+      tags: stringArray(doc.tags),
+      alignmentTargets: stringArray(doc.alignmentTargets ?? doc.alignsTo ?? doc.targets),
+      auditFindings: stringArray(doc.auditFindings ?? doc.findings),
+      bodyDraft: stringValue(doc.bodyDraft, stringValue(doc.body, stringValue(doc.content))),
+    };
+  }).filter((doc) => doc.title && doc.path);
+}
+
+function mapProjectWorkItems(value: unknown): ProjectWorkItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((item, index) => {
+    const title = stringValue(item.title, stringValue(item.name, `Work item ${index + 1}`));
+    return {
+      id: stringValue(item.id, `work-${index + 1}`),
+      title,
+      type: normalizeProjectWorkItemType(item.type),
+      status: normalizeProjectWorkItemStatus(item.status),
+      priority: normalizeProjectWorkItemPriority(item.priority),
+      summary: stringValue(item.summary, stringValue(item.description, stringValue(item.notes))),
+      nextAction: flexibleValue(item, ['nextAction', 'Next Action']),
+      owner: stringValue(item.owner),
+      due: stringValue(item.due),
+      source: stringValue(item.source),
+      sourceId: stringValue(item.sourceId),
+      sourcePath: stringValue(item.sourcePath, stringValue(item.path)),
+      featureIds: stringArray(item.featureIds ?? item.features ?? item.linkedFeatureIds),
+      repositoryIds: stringArray(item.repositoryIds ?? item.repositories),
+      markdownDocumentIds: stringArray(item.markdownDocumentIds ?? item.documentIds ?? item.docs),
+      qaItemIds: stringArray(item.qaItemIds ?? item.qaIds),
+      roadmapItemIds: stringArray(item.roadmapItemIds ?? item.roadmapIds),
+      tags: stringArray(item.tags),
+      acceptanceCriteria: stringArray(item.acceptanceCriteria ?? item.criteria),
+      createdAt: stringValue(item.createdAt, stringValue(item.date)),
+      updatedAt: stringValue(item.updatedAt),
+      progressLog: mapProgressLog(item.progressLog ?? item.history),
+    };
+  }).filter((item) => item.title && item.summary);
+}
+
+function mapProjectQueueViews(value: unknown): ProjectQueueView[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((view, index) => {
+    const filters = isRecord(view.filters) ? view.filters : view;
+    const priority: ProjectWorkItemPriority | 'all' = filters.priority ? normalizeProjectWorkItemPriority(filters.priority) : 'all';
+    const name = stringValue(view.name, stringValue(view.title, `Queue view ${index + 1}`));
+    return {
+      id: stringValue(view.id, `queue-view-${index + 1}`),
+      name,
+      summary: stringValue(view.summary, stringValue(view.description, 'Reusable queue filter view.')),
+      filters: {
+        stage: normalizeProjectQueueViewStage(filters.stage),
+        type: normalizeProjectQueueViewType(filters.type),
+        owner: stringValue(filters.owner),
+        priority,
+        source: stringValue(filters.source),
+        search: stringValue(filters.search),
+      },
+      owner: stringValue(view.owner),
+      cadence: stringValue(view.cadence),
+      outcome: stringValue(view.outcome),
+      source: stringValue(view.source),
+      createdAt: stringValue(view.createdAt, stringValue(view.date)),
+      updatedAt: stringValue(view.updatedAt),
+    };
+  }).filter((view) => view.name && view.summary);
+}
+
+function mapProjectBatchTemplateRuns(value: unknown): ProjectBatchTemplateRun[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((run, index) => {
+    const createdWorkItemIds = stringArray(run.createdWorkItemIds ?? run.workItemIds);
+    const sourceTitles = stringArray(run.sourceTitles ?? run.sources);
+    return {
+      id: stringValue(run.id, `batch-template-run-${index + 1}`),
+      ranAt: stringValue(run.ranAt, stringValue(run.createdAt, stringValue(run.date))),
+      sourceCount: numberValue(run.sourceCount, sourceTitles.length),
+      createdWorkItemCount: numberValue(run.createdWorkItemCount, createdWorkItemIds.length),
+      createdWorkItemIds,
+      sourceTitles,
+      summary: stringValue(run.summary, 'Batch template run.'),
+      outcomeScore: numberValue(run.outcomeScore, 0) || undefined,
+      outcomeNotes: stringValue(run.outcomeNotes, stringValue(run.notes)),
+      reviewedAt: stringValue(run.reviewedAt),
+    };
+  }).filter((run) => run.ranAt && run.summary);
+}
+
+function mapProjectBatchTemplates(value: unknown): ProjectBatchTemplate[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((template, index) => {
+    const filters = isRecord(template.filters) ? template.filters : {};
+    const documentPurpose: MarkdownDocumentPurpose | 'all' = filters.documentPurpose ? normalizeMarkdownDocumentPurpose(filters.documentPurpose) : 'all';
+    const documentStatus: MarkdownDocumentStatus | 'all' = filters.documentStatus ? normalizeMarkdownDocumentStatus(filters.documentStatus) : 'all';
+    const qaStatus: QAItemStatus | 'all' = filters.qaStatus ? normalizeQAStatus(filters.qaStatus) : 'all';
+    const qaPriority: QAItemPriority | 'all' = filters.qaPriority ? normalizeQAPriority(filters.qaPriority) : 'all';
+    const featureDisposition: FeatureDisposition | 'all' = filters.featureDisposition ? normalizeDisposition(filters.featureDisposition) : 'all';
+    const name = stringValue(template.name, stringValue(template.title, `Batch template ${index + 1}`));
+    return {
+      id: stringValue(template.id, `batch-template-${index + 1}`),
+      name,
+      summary: stringValue(template.summary, stringValue(template.description, 'Reusable batch work-item template.')),
+      sourceType: normalizeProjectBatchTemplateSource(template.sourceType ?? template.sourceKind ?? template.source),
+      workItemType: normalizeProjectWorkItemType(template.workItemType ?? template.type),
+      priority: normalizeProjectWorkItemPriority(template.priority),
+      titlePrefix: stringValue(template.titlePrefix, stringValue(template.prefix, name)),
+      nextAction: flexibleValue(template, ['nextAction', 'Next Action'], 'Review the source record and complete the prepared work item.'),
+      owner: stringValue(template.owner),
+      source: stringValue(template.source),
+      tags: stringArray(template.tags),
+      filters: {
+        documentPurpose,
+        documentStatus,
+        alignmentTarget: stringValue(filters.alignmentTarget),
+        qaStatus,
+        qaPriority,
+        roadmapStatus: stringValue(filters.roadmapStatus),
+        featureReleaseId: stringValue(filters.featureReleaseId, stringValue(filters.releaseId)),
+        featureDisposition,
+        tag: stringValue(filters.tag),
+        sourceIncludes: stringValue(filters.sourceIncludes),
+      },
+      cadence: stringValue(template.cadence),
+      outcome: stringValue(template.outcome),
+      archivedAt: stringValue(template.archivedAt),
+      lastRunAt: stringValue(template.lastRunAt),
+      lastRunItemCount: numberValue(template.lastRunItemCount, 0),
+      lastRunSourceCount: numberValue(template.lastRunSourceCount, 0),
+      lastRunWorkItemIds: stringArray(template.lastRunWorkItemIds),
+      runHistory: mapProjectBatchTemplateRuns(template.runHistory),
+      createdAt: stringValue(template.createdAt, stringValue(template.date)),
+      updatedAt: stringValue(template.updatedAt),
+    };
+  }).filter((template) => template.name && template.summary);
 }
 
 function mapQANotes(value: unknown): QANote[] {
@@ -778,6 +1286,66 @@ function mapSlimmingCandidates(value: unknown): { featureId: string; suggestedAc
   })).filter((candidate) => candidate.featureId);
 }
 
+function normalizeTestingRuntimeStatus(value: unknown): TestingRuntimeStatus {
+  const raw = stringValue(value, 'needs-confirmation').trim().toLowerCase();
+  if (['available', 'missing', 'needs-confirmation', 'error'].includes(raw)) return raw as TestingRuntimeStatus;
+  if (raw === 'ready' || raw === 'ok' || raw === 'present') return 'available';
+  if (raw === 'unknown' || raw === 'confirm') return 'needs-confirmation';
+  return 'needs-confirmation';
+}
+
+function normalizeTestingToolCategory(value: unknown): TestingToolCategory {
+  const raw = stringValue(value, 'other').trim().toLowerCase();
+  if (['runtime', 'package-manager', 'browser', 'unit-test', 'e2e-test', 'wordpress', 'docker', 'quality', 'database', 'other'].includes(raw)) {
+    return raw as TestingToolCategory;
+  }
+  return 'other';
+}
+
+function mapTestingRuntimeScan(value: unknown): ProjectTestingRuntimeScan | undefined {
+  if (!isRecord(value)) return undefined;
+  return {
+    schemaVersion: 'project-analysis.testing-runtime.v1',
+    scannerVersion: stringValue(value.scannerVersion, 'unknown'),
+    scannedAt: stringValue(value.scannedAt),
+    workspaceRoot: stringValue(value.workspaceRoot),
+    mapId: stringValue(value.mapId),
+    tools: Array.isArray(value.tools)
+      ? value.tools.filter(isRecord).map((tool, index) => ({
+        id: stringValue(tool.id, `tool-${index + 1}`),
+        label: stringValue(tool.label, stringValue(tool.name, `Tool ${index + 1}`)),
+        category: normalizeTestingToolCategory(tool.category),
+        status: normalizeTestingRuntimeStatus(tool.status),
+        summary: stringValue(tool.summary, stringValue(tool.description)),
+        version: stringValue(tool.version),
+        command: stringValue(tool.command),
+        path: stringValue(tool.path),
+      }))
+      : [],
+    endpoints: Array.isArray(value.endpoints)
+      ? value.endpoints.filter(isRecord).map((endpoint, index) => ({
+        id: stringValue(endpoint.id, `endpoint-${index + 1}`),
+        label: stringValue(endpoint.label, stringValue(endpoint.name, `Endpoint ${index + 1}`)),
+        url: stringValue(endpoint.url),
+        status: normalizeTestingRuntimeStatus(endpoint.status),
+        summary: stringValue(endpoint.summary, stringValue(endpoint.description)),
+        statusCode: numberValue(endpoint.statusCode, 0) || undefined,
+      })).filter((endpoint) => endpoint.url)
+      : [],
+    repositories: Array.isArray(value.repositories)
+      ? value.repositories.filter(isRecord).map((repo, index) => ({
+        repositoryId: stringValue(repo.repositoryId, stringValue(repo.id, `repo-${index + 1}`)),
+        name: stringValue(repo.name, stringValue(repo.repositoryId, `Repository ${index + 1}`)),
+        path: stringValue(repo.path),
+        packageManager: stringValue(repo.packageManager),
+        scripts: stringArray(repo.scripts),
+        tools: stringArray(repo.tools),
+      })).filter((repo) => repo.repositoryId)
+      : [],
+    notes: stringArray(value.notes),
+  };
+}
+
 export function projectAnalysisFromJson(value: unknown, sourceLabel = 'Imported map'): ProjectAnalysisModel {
   if (!isRecord(value)) {
     throw new Error('The selected file is not a project-analysis JSON object.');
@@ -805,9 +1373,14 @@ export function projectAnalysisFromJson(value: unknown, sourceLabel = 'Imported 
         ...mapQAItems(value.qaItems ?? value.qaTasks ?? value.qa),
         ...mapFeatureScopedQAItems(value.features),
       ],
+      markdownDocuments: mapMarkdownDocuments(value.markdownDocuments ?? value.markdownDocs ?? value.documents ?? value.docs),
+      workItems: mapProjectWorkItems(value.workItems ?? value.executionItems ?? value.tasks),
+      queueViews: mapProjectQueueViews(value.queueViews ?? value.executionViews ?? value.savedQueueViews),
+      batchTemplates: mapProjectBatchTemplates(value.batchTemplates ?? value.workRunTemplates ?? value.executionTemplates),
       doNotCutBeforeChecks: stringArray(value.doNotCutBeforeChecks),
       openQuestions: stringArray(value.openQuestionsForReview),
       firstSlimmingCandidates: mapSlimmingCandidates(value.firstSlimmingCandidates),
+      testingRuntime: mapTestingRuntimeScan(value.testingRuntime),
     };
     if (model.features.length === 0) throw new Error('The feature-file map has no features.');
     return model;
@@ -815,7 +1388,16 @@ export function projectAnalysisFromJson(value: unknown, sourceLabel = 'Imported 
 
   const maybeModel = value as Partial<ProjectAnalysisModel>;
   if (Array.isArray(maybeModel.features) && Array.isArray(maybeModel.repositories)) {
-    return { ...maybeModel, sourceLabel } as ProjectAnalysisModel;
+    return {
+      ...maybeModel,
+      sourceLabel,
+      markdownDocuments: mapMarkdownDocuments(
+        value.markdownDocuments ?? value.markdownDocs ?? value.documents ?? value.docs ?? maybeModel.markdownDocuments,
+      ),
+      workItems: mapProjectWorkItems(value.workItems ?? value.executionItems ?? value.tasks ?? maybeModel.workItems),
+      queueViews: mapProjectQueueViews(value.queueViews ?? value.executionViews ?? value.savedQueueViews ?? maybeModel.queueViews),
+      batchTemplates: mapProjectBatchTemplates(value.batchTemplates ?? value.workRunTemplates ?? value.executionTemplates ?? maybeModel.batchTemplates),
+    } as ProjectAnalysisModel;
   }
 
   throw new Error('Unsupported project-analysis JSON format.');
@@ -1044,6 +1626,83 @@ export const sampleProjectAnalysis: ProjectAnalysisModel = {
       target: 'Post-MVP',
       priority: 'Future',
       capabilityId: 'collaboration',
+    },
+  ],
+  markdownDocuments: [
+    {
+      id: 'doc-launch-setup',
+      title: 'Launch Setup Notes',
+      path: 'docs/setup/LAUNCH-SETUP.md',
+      purpose: 'setup',
+      status: 'active',
+      summary: 'Tracks environment setup, private database assumptions, and checks needed before launch work.',
+      repositoryIds: ['customer-portal', 'automation-service'],
+      featureIds: ['brief-builder', 'asset-review'],
+      sensitivity: 'secret-free-summary',
+      lastReviewedAt: '2026-08-20',
+      tags: ['setup', 'database', 'release'],
+      alignmentTargets: ['MVP readiness', 'QA smoke checks'],
+      auditFindings: ['Confirm the private database setup notes match the current local environment before release.'],
+    },
+  ],
+  workItems: [
+    {
+      id: 'work-mcp-context-pack',
+      title: 'Define MCP context pack contract',
+      type: 'mcp',
+      status: 'ready',
+      priority: 'high',
+      summary: 'Draft the first read-only context pack contract before adding external agent access.',
+      nextAction: 'List required brand, ICP, research, link, and citation fields for the first MCP tool response.',
+      source: 'Sample planning item',
+      featureIds: ['brief-builder'],
+      repositoryIds: ['customer-portal', 'automation-service'],
+      tags: ['mcp-platform-mvp', 'context-pack'],
+      acceptanceCriteria: [
+        'Request and response fields are named.',
+        'Permission and entitlement checks are identified.',
+      ],
+      createdAt: '2026-08-20',
+    },
+  ],
+  queueViews: [
+    {
+      id: 'queue-view-mcp-platform',
+      name: 'MCP Platform',
+      summary: 'Reusable view for platform work that shapes external agent access and context-pack contracts.',
+      filters: {
+        type: 'mcp',
+        priority: 'high',
+        source: 'Sample planning item',
+      },
+      owner: 'Platform',
+      cadence: 'Weekly',
+      outcome: 'Keep context-pack and permission work grouped before opening integrations.',
+      source: 'Sample planning item',
+      createdAt: '2026-08-20',
+    },
+  ],
+  batchTemplates: [
+    {
+      id: 'batch-template-setup-doc-review',
+      name: 'Setup Doc Review Run',
+      summary: 'Create review tasks from setup documents that inform release readiness and environment assumptions.',
+      sourceType: 'markdown-documents',
+      workItemType: 'doc',
+      priority: 'medium',
+      titlePrefix: 'Review setup doc',
+      nextAction: 'Confirm the setup document still matches the current working environment and note any updates.',
+      owner: 'Platform',
+      source: 'Sample batch template',
+      tags: ['batch-template', 'setup-docs'],
+      filters: {
+        documentPurpose: 'setup',
+        documentStatus: 'active',
+        alignmentTarget: 'MVP readiness',
+      },
+      cadence: 'Before release checks',
+      outcome: 'Setup assumptions are reviewed before launch decisions.',
+      createdAt: '2026-08-20',
     },
   ],
   qaItems: [

@@ -128,6 +128,15 @@ function mergeFileRecord(records: Map<string, FileMapRecord>, incoming: FileMapR
   if (current.status === 'mapped' && incoming.status !== 'mapped') current.status = incoming.status;
 }
 
+function uniqueEdges(edges: ProjectMapEdge[], nodeIds: Set<string>): ProjectMapEdge[] {
+  const seen = new Set<string>();
+  return edges.filter((edge) => {
+    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target) || seen.has(edge.id)) return false;
+    seen.add(edge.id);
+    return true;
+  });
+}
+
 function relatedQAItems(model: ProjectAnalysisModel, visibleFeatureIds: Set<string>): QAItem[] {
   return (model.qaItems ?? []).filter((item) => item.featureIds.some((featureId) => visibleFeatureIds.has(featureId)));
 }
@@ -348,7 +357,7 @@ function buildLayeredMap(model: ProjectAnalysisModel, features: ProductFeature[]
 
   return {
     nodes,
-    edges: edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)),
+    edges: uniqueEdges(edges, nodeIds),
     files,
     qaItems,
     roadmapItems,
@@ -735,7 +744,7 @@ function DetailList({ title, items }: { title: string; items: string[] }) {
     <section>
       <h3>{title}</h3>
       <ul className="analysis-map-detail-list">
-        {items.map((item) => <li key={item}>{item}</li>)}
+        {items.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}
       </ul>
     </section>
   );

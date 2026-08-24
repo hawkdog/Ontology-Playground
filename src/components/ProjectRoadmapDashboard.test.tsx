@@ -34,7 +34,7 @@ const roadmapProject: ProjectAnalysisModel = {
   ],
   roadmapSources: [
     {
-      source: 'v2-ai-content-creator-app-358/docs/roadmap/PRODUCT-ROADMAP.md',
+      source: 'private-app/docs/roadmap/PRODUCT-ROADMAP.md',
       status: 'planned',
       phase: 'Phase 1',
       summary: 'Campaign planning remains part of the active product direction.',
@@ -47,7 +47,7 @@ const roadmapProject: ProjectAnalysisModel = {
       type: 'feature-candidate',
       status: 'mvp',
       summary: 'Bring source material into the workflow without full automated research.',
-      source: 'v2-ai-content-creator-app-358/docs/roadmap/PRODUCT-ROADMAP.md',
+      source: 'private-app/docs/roadmap/PRODUCT-ROADMAP.md',
       sourceSection: 'MVP Scope',
       phase: 'MVP',
       target: 'Launch',
@@ -87,7 +87,7 @@ describe('ProjectRoadmapDashboard', () => {
     expect(screen.getByRole('heading', { name: 'Private Map' })).toBeInTheDocument();
     expect(screen.getByText('Research Import')).toBeInTheDocument();
     expect(screen.getByText('Bring source material into the workflow without full automated research.')).toBeInTheDocument();
-    expect(screen.getAllByText('v2-ai-content-creator-app-358/docs/roadmap/PRODUCT-ROADMAP.md').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('private-app/docs/roadmap/PRODUCT-ROADMAP.md').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('app/research/import.tsx')).toBeInTheDocument();
     expect(screen.getByText('MVP Scope')).toBeInTheDocument();
   });
@@ -111,7 +111,7 @@ describe('ProjectRoadmapDashboard', () => {
 
     await user.type(screen.getByLabelText('Title'), 'Agency White Label');
     await user.type(screen.getByLabelText('Summary'), 'Defer agency branding until the launch path is proven.');
-    await user.type(screen.getByLabelText('Source doc'), 'content-plugin/docs/roadmap/PRODUCT-ROADMAP.md');
+    await user.type(screen.getByLabelText('Source doc'), 'private-plugin/docs/roadmap/PRODUCT-ROADMAP.md');
     await user.click(screen.getByRole('button', { name: 'Add roadmap item' }));
 
     expect(screen.getByText('Agency White Label')).toBeInTheDocument();

@@ -7,11 +7,13 @@ import {
   ClipboardCheck,
   Download,
   FileJson,
+  FileText,
   FolderTree,
   Gauge,
   GitBranch,
   Image,
   Layers3,
+  ListChecks,
   ListFilter,
   Milestone,
   Network,
@@ -26,6 +28,10 @@ import {
   dispositionLabels,
   fileStatusColors,
   fileStatusLabels,
+  markdownDocumentPurposeLabels,
+  markdownDocumentSensitivityLabels,
+  markdownDocumentStatusColors,
+  markdownDocumentStatusLabels,
   projectAnalysisFromJson,
   qaPriorityLabels,
   qaStatusColors,
@@ -36,20 +42,32 @@ import {
   sampleProjectAnalysis,
   type FileReferenceStatus,
   type FeatureDisposition,
+  type MarkdownDocument,
+  type MarkdownDocumentPurpose,
+  type MarkdownDocumentSensitivity,
+  type MarkdownDocumentStatus,
   type ProductFeature,
+  type ProjectBatchTemplate,
   type ProjectAnalysisModel,
+  type ProjectQueueView,
+  type ProjectWorkItem,
+  type ProjectWorkItemPriority,
+  type ProjectWorkItemType,
   type QAItem,
   type QAItemPriority,
   type QAItemStatus,
   type QAItemType,
+  type RoadmapItem,
+  type RoadmapSignal,
 } from '../data/projectAnalysis';
 import { navigate } from '../lib/router';
 import { loadProjectAnalysisFromApi, saveProjectAnalysisToApi } from '../lib/projectAnalysisApi';
 import { projectAnalysisAutoLoadEnabled, projectAnalysisSamplesEnabled } from '../lib/projectAnalysisSettings';
 import { ProjectLayeredMap } from './ProjectLayeredMap';
+import { ProjectMVPExecutionQueue } from './ProjectMVPExecutionQueue';
 import { ProjectMVPReadinessDashboard } from './ProjectMVPReadinessDashboard';
 
-type AnalyzerView = 'map' | 'readiness' | 'features' | 'files' | 'qa' | 'dependencies' | 'roadmap';
+type AnalyzerView = 'map' | 'readiness' | 'execution' | 'features' | 'files' | 'documents' | 'qa' | 'dependencies' | 'roadmap';
 
 interface ProjectAnalyzerProps {
   model?: ProjectAnalysisModel;
@@ -58,6 +76,8 @@ interface ProjectAnalyzerProps {
 const all = 'all';
 const qaStatusOrder: QAItemStatus[] = ['failed', 'blocked', 'needs-retest', 'partial', 'in-progress', 'ready', 'not-started', 'passed', 'deferred', 'future'];
 const qaTypeOrder: QAItemType[] = ['task', 'manual-test', 'automated-test', 'bug', 'note', 'decision', 'evidence'];
+const markdownDocumentStatusOrder: MarkdownDocumentStatus[] = ['draft', 'active', 'needs-review', 'aligned', 'stale', 'archived'];
+const markdownDocumentPurposeOrder: MarkdownDocumentPurpose[] = ['setup', 'architecture', 'security', 'audit', 'roadmap', 'qa', 'runbook', 'decision', 'reference', 'other'];
 
 function scoreFeature(value: number, effort: number, risk: number): number {
   return value * 2 - effort - risk;
@@ -101,6 +121,10 @@ function emptyModelCopy(model: ProjectAnalysisModel): ProjectAnalysisModel {
     components: [...model.components],
     dependencies: [...model.dependencies],
     qaItems: [...(model.qaItems ?? [])],
+    markdownDocuments: [...(model.markdownDocuments ?? [])],
+    workItems: [...(model.workItems ?? [])],
+    queueViews: [...(model.queueViews ?? [])],
+    batchTemplates: [...(model.batchTemplates ?? [])],
   };
 }
 
@@ -154,6 +178,10 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
   const [qaStatusFilter, setQAStatusFilter] = useState<typeof all | QAItemStatus>(all);
   const [qaTypeFilter, setQATypeFilter] = useState<typeof all | QAItemType>(all);
   const [qaFeatureFilter, setQAFeatureFilter] = useState(all);
+  const [documentStatusFilter, setDocumentStatusFilter] = useState<typeof all | MarkdownDocumentStatus>(all);
+  const [documentPurposeFilter, setDocumentPurposeFilter] = useState<typeof all | MarkdownDocumentPurpose>(all);
+  const [documentFeatureFilter, setDocumentFeatureFilter] = useState(all);
+  const [documentAlignmentFilter, setDocumentAlignmentFilter] = useState(all);
   const [importError, setImportError] = useState<string | null>(null);
   const [apiMessage, setApiMessage] = useState<string | null>(null);
   const [apiBusy, setApiBusy] = useState(false);
@@ -169,6 +197,20 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     status: 'not-started' as QAItemStatus,
     type: 'task' as QAItemType,
     priority: 'medium' as QAItemPriority,
+  });
+  const [documentDraft, setDocumentDraft] = useState({
+    title: '',
+    path: '',
+    summary: '',
+    featureId: '',
+    repositoryId: '',
+    tags: '',
+    alignmentTargets: '',
+    auditFinding: '',
+    bodyDraft: '',
+    status: 'draft' as MarkdownDocumentStatus,
+    purpose: 'reference' as MarkdownDocumentPurpose,
+    sensitivity: 'private' as MarkdownDocumentSensitivity,
   });
 
   const workingModel = activeModel;
@@ -246,6 +288,23 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       return true;
     });
   }, [featureById, qaFeatureFilter, qaStatusFilter, qaTypeFilter, repositoryFilter, workingModel]);
+  const filteredMarkdownDocuments = useMemo(() => {
+    if (!workingModel) return [];
+    return (workingModel.markdownDocuments ?? []).filter((doc) => {
+      if (documentStatusFilter !== all && doc.status !== documentStatusFilter) return false;
+      if (documentPurposeFilter !== all && doc.purpose !== documentPurposeFilter) return false;
+      if (documentFeatureFilter !== all && !(doc.featureIds ?? []).includes(documentFeatureFilter)) return false;
+      if (documentAlignmentFilter !== all && !(doc.alignmentTargets ?? []).includes(documentAlignmentFilter)) return false;
+      if (repositoryFilter !== all && !(doc.repositoryIds ?? []).includes(repositoryFilter)) {
+        const linkedFeatureMatchesRepo = (doc.featureIds ?? []).some((featureId) => featureById.get(featureId)?.repositoryIds.includes(repositoryFilter));
+        if (!linkedFeatureMatchesRepo) return false;
+      }
+      return true;
+    });
+  }, [documentAlignmentFilter, documentFeatureFilter, documentPurposeFilter, documentStatusFilter, featureById, repositoryFilter, workingModel]);
+  const documentAlignmentTargets = useMemo(() => (
+    Array.from(new Set((workingModel?.markdownDocuments ?? []).flatMap((doc) => doc.alignmentTargets ?? []))).sort()
+  ), [workingModel]);
 
   const totalFileReferences = (workingModel?.features ?? []).reduce((count, feature) => count + featureFileCount(feature), 0);
   const keptForMvp = (workingModel?.features ?? []).filter(
@@ -258,6 +317,11 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
   }, { 'not-started': 0, ready: 0, 'in-progress': 0, partial: 0, 'needs-retest': 0, blocked: 0, failed: 0, passed: 0, deferred: 0, future: 0 });
   const qaOpenCount = (workingModel?.qaItems ?? []).filter((item) => !['passed', 'deferred'].includes(item.status)).length;
   const qaEvidenceCount = (workingModel?.qaItems ?? []).reduce((count, item) => count + (item.attachments?.length ?? 0), 0);
+  const documentCounts = (workingModel?.markdownDocuments ?? []).reduce<Record<MarkdownDocumentStatus, number>>((counts, doc) => {
+    counts[doc.status] += 1;
+    return counts;
+  }, { draft: 0, active: 0, 'needs-review': 0, aligned: 0, stale: 0, archived: 0 });
+  const documentsNeedingReview = (workingModel?.markdownDocuments ?? []).filter((doc) => ['draft', 'needs-review', 'stale'].includes(doc.status)).length;
   const fileStatusCounts = (workingModel?.features ?? []).reduce<Record<FileReferenceStatus, number>>((counts, feature) => {
     for (const group of allFeatureFiles(feature)) {
       for (const file of group.files) {
@@ -283,6 +347,10 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       setQAStatusFilter(all);
       setQATypeFilter(all);
       setQAFeatureFilter(all);
+      setDocumentStatusFilter(all);
+      setDocumentPurposeFilter(all);
+      setDocumentFeatureFilter(all);
+      setDocumentAlignmentFilter(all);
       setExpandedFeatureId(null);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : 'Unable to import that JSON file.');
@@ -300,6 +368,10 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     setQAStatusFilter(all);
     setQATypeFilter(all);
     setQAFeatureFilter(all);
+    setDocumentStatusFilter(all);
+    setDocumentPurposeFilter(all);
+    setDocumentFeatureFilter(all);
+    setDocumentAlignmentFilter(all);
   };
 
   const clearMap = () => {
@@ -312,6 +384,10 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     setQAStatusFilter(all);
     setQATypeFilter(all);
     setQAFeatureFilter(all);
+    setDocumentStatusFilter(all);
+    setDocumentPurposeFilter(all);
+    setDocumentFeatureFilter(all);
+    setDocumentAlignmentFilter(all);
     setExpandedFeatureId(null);
   };
 
@@ -329,6 +405,10 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       setQAStatusFilter(all);
       setQATypeFilter(all);
       setQAFeatureFilter(all);
+      setDocumentStatusFilter(all);
+      setDocumentPurposeFilter(all);
+      setDocumentFeatureFilter(all);
+      setDocumentAlignmentFilter(all);
       setExpandedFeatureId(null);
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : 'Unable to load the private database map.');
@@ -390,13 +470,264 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     });
   };
 
-  const updateFeature = (featureId: string, updates: Partial<ProductFeature>) => {
-    if (!workingModel) return;
+  const addMarkdownDocument = () => {
+    if (!workingModel || !documentDraft.title.trim() || !documentDraft.path.trim()) return;
+    const tags = documentDraft.tags.split(',').map((tag) => tag.trim()).filter(Boolean);
+    const alignmentTargets = documentDraft.alignmentTargets.split(/\n|,/).map((target) => target.trim()).filter(Boolean);
+    const auditFindings = documentDraft.auditFinding.trim() ? [documentDraft.auditFinding.trim()] : [];
+    const newDocument: MarkdownDocument = {
+      id: makeId('md-doc'),
+      title: documentDraft.title.trim(),
+      path: documentDraft.path.trim(),
+      purpose: documentDraft.purpose,
+      status: documentDraft.status,
+      summary: documentDraft.summary.trim(),
+      repositoryIds: documentDraft.repositoryId ? [documentDraft.repositoryId] : [],
+      featureIds: documentDraft.featureId ? [documentDraft.featureId] : [],
+      sensitivity: documentDraft.sensitivity,
+      updatedAt: new Date().toISOString().slice(0, 10),
+      tags,
+      alignmentTargets,
+      auditFindings,
+      bodyDraft: documentDraft.bodyDraft.trim(),
+    };
+
     setActiveModel({
       ...workingModel,
-      features: workingModel.features.map((feature) => (
-        feature.id === featureId ? { ...feature, ...updates } : feature
-      )),
+      markdownDocuments: [...(workingModel.markdownDocuments ?? []), newDocument],
+    });
+    setDocumentDraft({
+      title: '',
+      path: '',
+      summary: '',
+      featureId: documentDraft.featureId,
+      repositoryId: documentDraft.repositoryId,
+      tags: '',
+      alignmentTargets: '',
+      auditFinding: '',
+      bodyDraft: '',
+      status: 'draft',
+      purpose: documentDraft.purpose,
+      sensitivity: documentDraft.sensitivity,
+    });
+  };
+
+  const updateFeature = (featureId: string, updates: Partial<ProductFeature>) => {
+    setActiveModel((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        features: current.features.map((feature) => (
+          feature.id === featureId ? { ...feature, ...updates } : feature
+        )),
+      };
+    });
+  };
+
+  const addWorkItem = (item: ProjectWorkItem) => {
+    setActiveModel((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        workItems: [item, ...(current.workItems ?? [])],
+      };
+    });
+  };
+
+  const updateWorkItem = (itemId: string, updates: Partial<ProjectWorkItem>) => {
+    setActiveModel((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        workItems: (current.workItems ?? []).map((item) => (
+          item.id === itemId ? { ...item, ...updates, updatedAt: new Date().toISOString().slice(0, 10) } : item
+        )),
+      };
+    });
+  };
+
+  const addQueueView = (queueView: ProjectQueueView) => {
+    setActiveModel((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        queueViews: [queueView, ...(current.queueViews ?? [])],
+      };
+    });
+  };
+
+  const addBatchTemplate = (template: ProjectBatchTemplate) => {
+    setActiveModel((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        batchTemplates: [template, ...(current.batchTemplates ?? [])],
+      };
+    });
+  };
+
+  const updateBatchTemplate = (templateId: string, updates: Partial<ProjectBatchTemplate>) => {
+    setActiveModel((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        batchTemplates: (current.batchTemplates ?? []).map((template) => (
+          template.id === templateId ? { ...template, ...updates, updatedAt: new Date().toISOString().slice(0, 10) } : template
+        )),
+      };
+    });
+  };
+
+  const deleteBatchTemplate = (templateId: string) => {
+    setActiveModel((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        batchTemplates: (current.batchTemplates ?? []).filter((template) => template.id !== templateId),
+      };
+    });
+  };
+
+  const enqueueWorkItem = (item: ProjectWorkItem) => {
+    if (!workingModel) return;
+    const existing = (workingModel.workItems ?? []).find((candidate) => (
+      candidate.source === item.source
+      && candidate.sourceId === item.sourceId
+      && candidate.title === item.title
+    ));
+    if (existing) {
+      setApiMessage(`Work item already exists: ${existing.title}`);
+      setView('execution');
+      return;
+    }
+
+    setActiveModel({
+      ...workingModel,
+      workItems: [item, ...(workingModel.workItems ?? [])],
+    });
+    setApiMessage(`Added work item: ${item.title}`);
+    setView('execution');
+  };
+
+  const baseWorkItem = (
+    title: string,
+    summary: string,
+    type: ProjectWorkItemType,
+    priority: ProjectWorkItemPriority,
+    source: string,
+    sourceId: string,
+  ): ProjectWorkItem => {
+    const today = new Date().toISOString().slice(0, 10);
+    return {
+      id: makeId('work'),
+      title,
+      type,
+      status: 'todo',
+      priority,
+      summary,
+      source,
+      sourceId,
+      createdAt: today,
+      updatedAt: today,
+    };
+  };
+
+  const enqueueDocumentWork = (doc: MarkdownDocument, auditFinding?: string) => {
+    const title = auditFinding ? `Review audit note: ${doc.title}` : `Review doc: ${doc.title}`;
+    const type: ProjectWorkItemType = auditFinding ? 'audit' : doc.purpose === 'security' ? 'security' : doc.purpose === 'qa' ? 'qa' : 'doc';
+    const item = baseWorkItem(
+      title,
+      auditFinding || doc.summary || `Review ${doc.path}.`,
+      type,
+      auditFinding || doc.status === 'needs-review' || doc.purpose === 'security' ? 'high' : 'medium',
+      auditFinding ? 'MD Doc audit finding' : 'MD Docs',
+      auditFinding ? `${doc.id}:${auditFinding}` : doc.id,
+    );
+    enqueueWorkItem({
+      ...item,
+      nextAction: auditFinding ? 'Resolve or document this audit finding.' : 'Review the markdown document and confirm whether it affects the active project.',
+      sourcePath: doc.path,
+      featureIds: doc.featureIds ?? [],
+      repositoryIds: doc.repositoryIds ?? [],
+      markdownDocumentIds: [doc.id],
+      tags: ['from-md-doc', ...(doc.tags ?? []), ...(doc.alignmentTargets ?? []).map((target) => target.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''))],
+    });
+  };
+
+  const enqueueQAWork = (item: QAItem) => {
+    const workItem = baseWorkItem(
+      `Resolve QA: ${item.title}`,
+      item.nextAction || item.summary || 'Resolve this QA item and attach evidence.',
+      'qa',
+      ['blocked', 'failed'].includes(item.status) ? 'critical' : item.priority === 'critical' || item.priority === 'high' ? 'high' : 'medium',
+      'QA item',
+      item.id,
+    );
+    enqueueWorkItem({
+      ...workItem,
+      status: ['blocked', 'failed'].includes(item.status) ? 'blocked' : 'todo',
+      nextAction: item.nextAction || 'Run or retest this QA item, then update the result and evidence.',
+      featureIds: item.featureIds,
+      repositoryIds: item.repositoryIds ?? [],
+      qaItemIds: [item.id],
+      sourcePath: item.sourceDoc || item.fileRefs?.[0],
+      tags: ['from-qa', item.status, item.type],
+    });
+  };
+
+  const enqueueRoadmapItemWork = (item: RoadmapItem) => {
+    const workItem = baseWorkItem(
+      `Roadmap follow-up: ${item.title}`,
+      item.summary,
+      'roadmap',
+      item.status === 'mvp' || item.priority?.toLowerCase() === 'high' ? 'high' : 'medium',
+      'Roadmap item',
+      item.id,
+    );
+    enqueueWorkItem({
+      ...workItem,
+      nextAction: item.notes?.[0] || 'Review this roadmap item and decide whether it becomes active work.',
+      featureIds: item.featureIds ?? [],
+      repositoryIds: item.repositoryIds ?? [],
+      roadmapItemIds: [item.id],
+      sourcePath: item.source,
+      tags: ['from-roadmap', item.status, item.type],
+    });
+  };
+
+  const enqueueRoadmapSignalWork = (signal: RoadmapSignal, index: number) => {
+    const sourceId = `${signal.source}:${signal.summary}:${index}`;
+    const workItem = baseWorkItem(
+      `Roadmap source follow-up: ${signal.source}`,
+      signal.summary,
+      'roadmap',
+      signal.status === 'mvp' || signal.status === 'in-progress' ? 'high' : 'medium',
+      'Roadmap source',
+      sourceId,
+    );
+    enqueueWorkItem({
+      ...workItem,
+      nextAction: 'Review this roadmap source and promote it to a roadmap item or feature if needed.',
+      sourcePath: signal.source,
+      tags: ['from-roadmap-source', signal.status, signal.phase || signal.target || 'roadmap'],
+    });
+  };
+
+  const enqueueFeatureWork = (feature: ProductFeature) => {
+    const workItem = baseWorkItem(
+      `Feature follow-up: ${feature.name}`,
+      feature.mvpNextAction || feature.rationale,
+      'feature',
+      feature.value >= 5 || feature.releaseId === 'mvp' ? 'high' : 'medium',
+      'Feature',
+      feature.id,
+    );
+    enqueueWorkItem({
+      ...workItem,
+      nextAction: feature.mvpNextAction || 'Review this feature and decide the next implementation, QA, or scope action.',
+      featureIds: [feature.id],
+      repositoryIds: feature.repositoryIds,
+      tags: ['from-feature', feature.disposition, feature.releaseId],
     });
   };
 
@@ -474,6 +805,11 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
             <span>File refs</span>
           </div>
           <div className="analysis-summary-card">
+            <FileText size={18} />
+            <strong>{workingModel.markdownDocuments?.length ?? 0}</strong>
+            <span>MD Docs</span>
+          </div>
+          <div className="analysis-summary-card">
             <AlertTriangle size={18} />
             <strong>{workingModel.doNotCutBeforeChecks?.length ?? 0}</strong>
             <span>Do not cut</span>
@@ -493,7 +829,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
 
       <section className="analysis-toolbar" aria-label="Project analysis filters">
         <div className="analysis-tabs" role="tablist" aria-label="Analysis views">
-          {(['map', 'readiness', 'features', 'files', 'dependencies', 'roadmap', 'qa'] as AnalyzerView[]).map((candidate) => (
+          {(['map', 'readiness', 'execution', 'features', 'files', 'documents', 'dependencies', 'roadmap', 'qa'] as AnalyzerView[]).map((candidate) => (
             <button
               key={candidate}
               className={`analysis-tab ${view === candidate ? 'active' : ''}`}
@@ -504,12 +840,14 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
             >
               {candidate === 'map' && <Network size={16} />}
               {candidate === 'readiness' && <Gauge size={16} />}
+              {candidate === 'execution' && <ListChecks size={16} />}
               {candidate === 'features' && <Layers3 size={16} />}
               {candidate === 'files' && <FolderTree size={16} />}
+              {candidate === 'documents' && <FileText size={16} />}
               {candidate === 'dependencies' && <Network size={16} />}
               {candidate === 'roadmap' && <Milestone size={16} />}
               {candidate === 'qa' && <ClipboardCheck size={16} />}
-              {candidate === 'qa' ? 'QA' : candidate === 'readiness' ? 'MVP Readiness' : candidate[0].toUpperCase() + candidate.slice(1)}
+              {candidate === 'qa' ? 'QA' : candidate === 'documents' ? 'MD Docs' : candidate === 'readiness' ? 'MVP Readiness' : candidate === 'execution' ? 'Work Queue' : candidate[0].toUpperCase() + candidate.slice(1)}
             </button>
           ))}
         </div>
@@ -584,6 +922,21 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
           features={filteredFeatures}
           onSelectFeature={setExpandedFeatureId}
           onUpdateFeature={updateFeature}
+        />
+      )}
+
+      {view === 'execution' && (
+        <ProjectMVPExecutionQueue
+          model={workingModel}
+          features={filteredFeatures}
+          onSelectFeature={setExpandedFeatureId}
+          onUpdateFeature={updateFeature}
+          onAddWorkItem={addWorkItem}
+          onUpdateWorkItem={updateWorkItem}
+          onAddQueueView={addQueueView}
+          onAddBatchTemplate={addBatchTemplate}
+          onUpdateBatchTemplate={updateBatchTemplate}
+          onDeleteBatchTemplate={deleteBatchTemplate}
         />
       )}
 
@@ -707,6 +1060,10 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
                       ))}
                     </div>
                   )}
+                  <button className="analysis-card-toggle analysis-card-toggle--secondary" type="button" onClick={() => enqueueQAWork(item)}>
+                    <Plus size={15} />
+                    Send to Work Queue
+                  </button>
                 </article>
               ))}
             </section>
@@ -818,6 +1175,185 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
         </main>
       )}
 
+      {view === 'documents' && (
+        <main className="analysis-qa-layout analysis-md-layout" aria-label="Markdown document tracking">
+          <section className="analysis-qa-main">
+            <section className="analysis-status-strip" aria-label="Markdown document status counts">
+              {markdownDocumentStatusOrder.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  className={documentStatusFilter === status ? 'active' : ''}
+                  style={{ borderColor: markdownDocumentStatusColors[status] }}
+                  onClick={() => setDocumentStatusFilter(documentStatusFilter === status ? all : status)}
+                >
+                  <strong>{documentCounts[status]}</strong>
+                  {markdownDocumentStatusLabels[status]}
+                </button>
+              ))}
+              <span>
+                <AlertTriangle size={14} />
+                <strong>{documentsNeedingReview}</strong>
+                Review
+              </span>
+            </section>
+
+            <section className="analysis-qa-filters" aria-label="Markdown document filters">
+              <select
+                aria-label="Markdown document purpose"
+                value={documentPurposeFilter}
+                onChange={(event) => setDocumentPurposeFilter(event.target.value as typeof all | MarkdownDocumentPurpose)}
+              >
+                <option value={all}>All document types</option>
+                {markdownDocumentPurposeOrder.map((purpose) => (
+                  <option key={purpose} value={purpose}>{markdownDocumentPurposeLabels[purpose]}</option>
+                ))}
+              </select>
+              <select aria-label="Markdown document feature" value={documentFeatureFilter} onChange={(event) => setDocumentFeatureFilter(event.target.value)}>
+                <option value={all}>All features</option>
+                {workingModel.features.map((feature) => <option key={feature.id} value={feature.id}>{feature.name}</option>)}
+              </select>
+              <select aria-label="Markdown document alignment" value={documentAlignmentFilter} onChange={(event) => setDocumentAlignmentFilter(event.target.value)}>
+                <option value={all}>All alignment targets</option>
+                {documentAlignmentTargets.map((target) => <option key={target} value={target}>{target}</option>)}
+              </select>
+            </section>
+
+            <section className="analysis-qa-list analysis-md-list">
+              {filteredMarkdownDocuments.length === 0 ? (
+                <div className="analysis-empty-state">No markdown documents match the current filters.</div>
+              ) : filteredMarkdownDocuments.map((doc) => (
+                <article className="analysis-qa-card analysis-md-card" key={doc.id}>
+                  <header>
+                    <div>
+                      <span
+                        className="analysis-roadmap-status"
+                        style={{ borderColor: markdownDocumentStatusColors[doc.status], color: markdownDocumentStatusColors[doc.status] }}
+                      >
+                        {markdownDocumentStatusLabels[doc.status]}
+                      </span>
+                      <span className="analysis-qa-type">{markdownDocumentPurposeLabels[doc.purpose]}</span>
+                    </div>
+                    {doc.updatedAt || doc.lastReviewedAt ? <time>{doc.updatedAt || doc.lastReviewedAt}</time> : null}
+                  </header>
+                  <h2>{doc.title}</h2>
+                  <code className="analysis-inline-code">{doc.path}</code>
+                  {doc.summary && <p>{doc.summary}</p>}
+                  <div className="analysis-chip-row">
+                    {doc.sensitivity && <span className="analysis-chip">{markdownDocumentSensitivityLabels[doc.sensitivity]}</span>}
+                    {(doc.repositoryIds ?? []).map((repoId) => <span className="analysis-chip" key={repoId}>{repositoryById.get(repoId)?.name ?? repoId}</span>)}
+                    {(doc.featureIds ?? []).map((featureId) => (
+                      <button className="analysis-chip-button" key={featureId} type="button" onClick={() => setExpandedFeatureId(featureId)}>
+                        {featureById.get(featureId)?.name ?? featureId}
+                      </button>
+                    ))}
+                    {(doc.tags ?? []).map((tag) => <span className="analysis-chip" key={tag}>{tag}</span>)}
+                  </div>
+                  {doc.alignmentTargets && doc.alignmentTargets.length > 0 && (
+                    <div className="analysis-md-note-block">
+                      <strong>Aligns to</strong>
+                      <ul>{doc.alignmentTargets.map((target) => <li key={target}>{target}</li>)}</ul>
+                    </div>
+                  )}
+                  {doc.auditFindings && doc.auditFindings.length > 0 && (
+                    <div className="analysis-md-note-block">
+                      <strong>Audit notes</strong>
+                      <ul>
+                        {doc.auditFindings.map((finding) => (
+                          <li key={finding}>
+                            <span>{finding}</span>
+                            <button className="analysis-chip-button" type="button" onClick={() => enqueueDocumentWork(doc, finding)}>
+                              Queue
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {doc.bodyDraft && <pre className="analysis-md-draft">{doc.bodyDraft}</pre>}
+                  <button className="analysis-card-toggle analysis-card-toggle--secondary" type="button" onClick={() => enqueueDocumentWork(doc)}>
+                    <Plus size={15} />
+                    Send to Work Queue
+                  </button>
+                </article>
+              ))}
+            </section>
+          </section>
+
+          <aside className="analysis-qa-composer analysis-md-composer">
+            <h2>Add MD Doc</h2>
+            <label>
+              <span>Title</span>
+              <input value={documentDraft.title} onChange={(event) => setDocumentDraft({ ...documentDraft, title: event.target.value })} />
+            </label>
+            <label>
+              <span>Path</span>
+              <input value={documentDraft.path} onChange={(event) => setDocumentDraft({ ...documentDraft, path: event.target.value })} />
+            </label>
+            <div className="analysis-qa-composer-grid">
+              <label>
+                <span>Purpose</span>
+                <select value={documentDraft.purpose} onChange={(event) => setDocumentDraft({ ...documentDraft, purpose: event.target.value as MarkdownDocumentPurpose })}>
+                  {markdownDocumentPurposeOrder.map((purpose) => <option key={purpose} value={purpose}>{markdownDocumentPurposeLabels[purpose]}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Status</span>
+                <select value={documentDraft.status} onChange={(event) => setDocumentDraft({ ...documentDraft, status: event.target.value as MarkdownDocumentStatus })}>
+                  {markdownDocumentStatusOrder.map((status) => <option key={status} value={status}>{markdownDocumentStatusLabels[status]}</option>)}
+                </select>
+              </label>
+            </div>
+            <label>
+              <span>Sensitivity</span>
+              <select value={documentDraft.sensitivity} onChange={(event) => setDocumentDraft({ ...documentDraft, sensitivity: event.target.value as MarkdownDocumentSensitivity })}>
+                {Object.entries(markdownDocumentSensitivityLabels).map(([sensitivity, label]) => (
+                  <option key={sensitivity} value={sensitivity}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Repository</span>
+              <select value={documentDraft.repositoryId} onChange={(event) => setDocumentDraft({ ...documentDraft, repositoryId: event.target.value })}>
+                <option value="">No repository link</option>
+                {workingModel.repositories.map((repo) => <option key={repo.id} value={repo.id}>{repo.name}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Feature</span>
+              <select value={documentDraft.featureId} onChange={(event) => setDocumentDraft({ ...documentDraft, featureId: event.target.value })}>
+                <option value="">No feature link</option>
+                {workingModel.features.map((feature) => <option key={feature.id} value={feature.id}>{feature.name}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Tags</span>
+              <input value={documentDraft.tags} onChange={(event) => setDocumentDraft({ ...documentDraft, tags: event.target.value })} />
+            </label>
+            <label>
+              <span>Summary</span>
+              <textarea rows={3} value={documentDraft.summary} onChange={(event) => setDocumentDraft({ ...documentDraft, summary: event.target.value })} />
+            </label>
+            <label>
+              <span>Alignment targets</span>
+              <textarea rows={3} value={documentDraft.alignmentTargets} onChange={(event) => setDocumentDraft({ ...documentDraft, alignmentTargets: event.target.value })} />
+            </label>
+            <label>
+              <span>Audit note</span>
+              <textarea rows={3} value={documentDraft.auditFinding} onChange={(event) => setDocumentDraft({ ...documentDraft, auditFinding: event.target.value })} />
+            </label>
+            <label>
+              <span>Draft body or notes</span>
+              <textarea rows={5} value={documentDraft.bodyDraft} onChange={(event) => setDocumentDraft({ ...documentDraft, bodyDraft: event.target.value })} />
+            </label>
+            <button className="analysis-card-toggle" type="button" onClick={addMarkdownDocument} disabled={!documentDraft.title.trim() || !documentDraft.path.trim()}>
+              <Plus size={15} />
+              Add to map
+            </button>
+          </aside>
+        </main>
+      )}
+
       {view === 'dependencies' && (
         <main className="analysis-dependency-layout" aria-label="Feature dependencies">
           <section className="analysis-dependency-list">
@@ -892,6 +1428,9 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
                             ))}
                           </ul>
                         )}
+                        <button className="analysis-chip-button" type="button" onClick={() => enqueueFeatureWork(feature)}>
+                          Queue work
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -899,13 +1438,32 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
               );
             })}
           </section>
-          {Boolean(workingModel.roadmapSources?.length || workingModel.openQuestions?.length) && (
+          {Boolean(workingModel.roadmapItems?.length || workingModel.roadmapSources?.length || workingModel.openQuestions?.length) && (
             <aside className="analysis-decision-panel analysis-roadmap-context">
+              {workingModel.roadmapItems && workingModel.roadmapItems.length > 0 && (
+                <>
+                  <h2>Roadmap Items</h2>
+                  <ul>
+                    {workingModel.roadmapItems.map((item) => (
+                      <li key={item.id}>
+                        <strong>{item.title}</strong>
+                        <span style={{ color: roadmapStatusColor(item.status) }}>
+                          {roadmapStatusLabel(item.status)}
+                        </span>
+                        <p>{item.summary}</p>
+                        <button className="analysis-chip-button" type="button" onClick={() => enqueueRoadmapItemWork(item)}>
+                          Send to Work Queue
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
               {workingModel.roadmapSources && workingModel.roadmapSources.length > 0 && (
                 <>
                   <h2>Roadmap Sources</h2>
                   <ul>
-                    {workingModel.roadmapSources.map((source) => (
+                    {workingModel.roadmapSources.map((source, index) => (
                       <li key={`${source.source}-${source.summary}`}>
                         <strong>{source.source}</strong>
                         <span
@@ -914,6 +1472,9 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
                           {roadmapStatusLabel(source.status)}
                         </span>
                         <p>{source.summary}</p>
+                        <button className="analysis-chip-button" type="button" onClick={() => enqueueRoadmapSignalWork(source, index)}>
+                          Send to Work Queue
+                        </button>
                       </li>
                     ))}
                   </ul>

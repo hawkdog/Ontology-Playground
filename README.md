@@ -106,14 +106,44 @@ the same model into a ship-decision board with readiness percentage, QA gaps,
 mapping gaps, blockers, future-release items, and next actions. Readiness cards
 can record the final MVP decision, owner, status, sign-off, cut-safety state,
 saved next action, and dated progress notes before teams make branch changes.
+The Work Queue tab then turns those signals into an ordered project queue for
+blockers, test/retest work, mapping gaps, review, backlog, and scope decisions,
+with filters for stage, type, owner, priority, source, and search plus quick
+actions that update feature status and progress history. It can also hold
+dedicated work items for MCP tasks, audits, schema/API work, security, docs,
+roadmap follow-up, QA gaps, and integrations, so the queue can track work that
+is not yet represented as a product feature. MD Docs, audit notes, QA items,
+roadmap items, roadmap sources, and feature roadmap cards can send work directly
+into the queue with duplicate protection. Saved queue views can preserve
+repeatable operating lanes such as MCP platform work, schema/API audits,
+security checks, docs, and feature scope, and batch actions can move the visible
+queue into start, review, or deferred states. Batch templates can create
+prepared work runs from matching MD Docs, QA items, roadmap records, roadmap
+sources, or feature records so recurring MCP, audit, security, and release
+passes start with executable queue items instead of a blank checklist. Template
+editing and source preview controls let teams adjust a run and select the exact
+matching source records before creating work, and new/copy controls let teams
+build reusable batch templates directly from the Work Queue. Archive, restore,
+and guarded delete controls preserve generated work history by blocking deletion
+when queue items still reference a template. Each successful template run writes
+last-run metadata and recent run history back to the project map so repeatable
+work runs have lightweight execution evidence. Run details resolve generated
+work item IDs back to queue items, letting teams focus the queue from a specific
+template run, and each run can store outcome notes plus a reuse-quality score.
 The screen starts from a local JSON import or, when enabled for a private local
 workspace, auto-loads the local Project Analyzer database so private product
 maps can stay outside this public repository. File references can carry local
 status labels such as mapped, existing, planned, orphan, and needs review, and
-features can include roadmap signals from local planning docs. Local deployments
-can also connect to a private Project Analyzer API for Load DB / Save DB
-workflows. The included sample is fictional, can be hidden with an environment
-flag, and exists only to demonstrate the workflow.
+features can include roadmap signals from local planning docs. The MD Docs tab
+tracks reusable markdown project memory such as setup notes, audit context,
+roadmaps, security checklists, and decision records, linking each document to
+features, repositories, status, sensitivity, alignment targets, and audit notes.
+Document filters can narrow the list by type, feature, or alignment target such
+as MCP platform MVP, schema/API audit, security baseline, and WordPress/plugin
+integration.
+Local deployments can also connect to a private Project Analyzer API for Load DB
+/ Save DB workflows. The included sample is fictional, can be hidden with an
+environment flag, and exists only to demonstrate the workflow.
 
 ### QA Dashboard
 
@@ -125,7 +155,15 @@ result, next action, MVP blocker, Stripe blocker, automation coverage, source
 document, and source section. Progress entries can include screenshots that
 open in an in-app image gallery with saved path/source context. Browser-session
 entries can be added from the dashboard and saved back to a private local
-database or exported as JSON.
+database or exported as JSON. The Testability view classifies QA items as
+manual-only, AI-assisted, automation-ready, or needing triage, and summarizes
+required dependencies such as browser access, local app runtime, WordPress,
+credentials, fixtures, screenshots, automation harnesses, and the private
+project database. A local runtime scanner can attach a `testingRuntime`
+snapshot to the private project map so dependency readiness reflects installed
+tools, configured local URLs, and reachable app or WordPress endpoints. The
+Testability screen includes a runtime status panel with the scanner command,
+last scan time, service readiness, and testing-tool availability.
 
 ### Roadmap Dashboard
 
@@ -225,6 +263,39 @@ npm test            # single run
 npm run test:watch  # watch mode
 ```
 
+### Project Analyzer Runtime Scanner
+
+For private Project Analyzer work, run the local scanner after the private
+PostgREST API is running and the project map has been saved at least once:
+
+```bash
+npm run qa:scan
+```
+
+The scanner reads local package/config files, checks configured URLs, discovers
+markdown project documents, extracts compact redacted summaries, and saves the
+result into `payload.testingRuntime` and `payload.markdownDocuments` on the
+private `project_maps` record. Existing markdown document records are merged by
+path so hand-maintained status, sensitivity, alignment targets, and audit notes
+are preserved. Use `npm run qa:scan:json` to write a standalone
+`testing-runtime-scan.json` without updating the database.
+
+Record a test result directly onto a QA item:
+
+```bash
+npm run qa:record -- --qa-id <qa-item-id> --status needs-retest --note "Result notes"
+```
+
+On Windows PowerShell, call the script directly if npm argument forwarding
+parses flags incorrectly:
+
+```powershell
+npx tsx scripts/record-qa-result.ts --qa-id <qa-item-id> --status needs-retest --note "Result notes"
+```
+
+Use `npm run qa:record -- --list` to inspect available QA item ids in the
+private map.
+
 ## Deployment
 
 ### Azure Static Web Apps (primary)
@@ -263,8 +334,14 @@ GitHub Pages build so asset paths resolve correctly.
 | `VITE_GITHUB_CLIENT_ID` | *(empty)* | GitHub OAuth App client ID for one-click catalogue PRs ([setup guide](docs/github-oauth-setup.md)) |
 | `VITE_GITHUB_OAUTH_BASE` | *(empty)* | External OAuth proxy URL for GitHub Pages deployments (e.g. Cloudflare Worker URL) |
 | `VITE_PROJECT_ANALYSIS_API_URL` | `http://localhost:3008` | Optional private Project Analyzer API used by the local Load DB / Save DB controls |
+| `VITE_PROJECT_ANALYSIS_MAP_ID` | `project-analysis-local` | Private project map row id used by Load DB, Save DB, and the runtime scanner |
 | `VITE_PROJECT_ANALYSIS_SHOW_SAMPLES` | `true` | Set to `false` in local private workspaces to hide fictional Project Analyzer sample loaders |
 | `VITE_PROJECT_ANALYSIS_AUTO_LOAD` | `false` | Set to `true` in local private workspaces to load the private Project Analyzer database on page open |
+| `PROJECT_ANALYSIS_WORKSPACE_ROOT` | parent directory of this repo | Workspace root scanned by `npm run qa:scan` |
+| `PROJECT_ANALYSIS_SCAN_URLS` | Project Analyzer API URL | Comma-separated local URLs checked by `npm run qa:scan` |
+| `VITE_PROJECT_ANALYSIS_APP_URL` | *(empty)* | Optional local app URL included in scanner endpoint checks |
+| `VITE_PROJECT_ANALYSIS_WORDPRESS_URL` | *(empty)* | Optional local WordPress URL included in scanner endpoint checks |
+| `VITE_PROJECT_ANALYSIS_TEST_WORDPRESS_URL` | *(empty)* | Optional local WordPress test-site URL included in scanner endpoint checks |
 
 ## Project Structure
 

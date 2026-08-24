@@ -36,6 +36,75 @@ const privateFeatureFileMap = {
       summary: 'Campaign planning remains part of the active product direction.',
     },
   ],
+  markdownDocuments: [
+    {
+      id: 'doc-supabase-setup',
+      title: 'Supabase Setup Context',
+      path: 'docs/setup/SUPABASE-SETUP.md',
+      purpose: 'setup',
+      status: 'active',
+      summary: 'Documents local Supabase configuration and migration context for project audits.',
+      repositoryIds: ['app'],
+      featureIds: ['briefs'],
+      sensitivity: 'private',
+      tags: ['supabase', 'setup'],
+      alignmentTargets: ['Schema/API audit', 'MCP server planning'],
+      auditFindings: ['Confirm RLS notes stay aligned with the latest migration set.'],
+    },
+  ],
+  workItems: [
+    {
+      id: 'work-mcp-auth',
+      title: 'Define MCP client registry',
+      type: 'mcp',
+      status: 'todo',
+      priority: 'high',
+      summary: 'Add the first work item for MCP client registration and access scopes.',
+      nextAction: 'Draft client registry fields and scope checks.',
+      owner: 'Platform',
+      source: 'MCP platform MVP',
+      featureIds: ['briefs'],
+      tags: ['mcp-platform-mvp'],
+    },
+  ],
+  queueViews: [
+    {
+      id: 'queue-view-mcp-platform',
+      name: 'MCP Platform',
+      summary: 'Focus the queue on MCP platform access and context layer tasks.',
+      filters: {
+        type: 'mcp',
+        owner: 'Platform',
+        priority: 'high',
+        source: 'MCP platform MVP',
+      },
+      owner: 'Platform',
+      cadence: 'Weekly',
+      outcome: 'Keep platform access work grouped for review.',
+    },
+  ],
+  batchTemplates: [
+    {
+      id: 'batch-template-schema-docs',
+      name: 'Schema Doc Audit Run',
+      summary: 'Create audit tasks from markdown documents aligned to the schema/API pass.',
+      sourceType: 'markdown-documents',
+      workItemType: 'audit',
+      priority: 'high',
+      titlePrefix: 'Schema audit pass',
+      nextAction: 'Review the document against current schema, API, RLS, and Supabase notes.',
+      owner: 'Platform',
+      source: 'MCP platform MVP',
+      tags: ['schema-api-audit'],
+      filters: {
+        documentPurpose: 'setup',
+        documentStatus: 'active',
+        alignmentTarget: 'Schema/API audit',
+      },
+      cadence: 'Per audit pass',
+      outcome: 'Schema/API docs are converted into executable audit work.',
+    },
+  ],
   features: [
     {
       id: 'briefs',
@@ -129,10 +198,11 @@ describe('ProjectAnalyzer', () => {
 
   it('can auto-load the private database map when private workspace mode enables it', async () => {
     vi.stubEnv('VITE_PROJECT_ANALYSIS_AUTO_LOAD', 'true');
+    vi.stubEnv('VITE_PROJECT_ANALYSIS_MAP_ID', 'private-project-map');
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => [{
-        id: 'msp-guides',
+        id: 'private-project-map',
         project_name: 'Private Map',
         source_label: 'private db',
         payload: privateFeatureFileMap,
@@ -143,7 +213,7 @@ describe('ProjectAnalyzer', () => {
     render(<ProjectAnalyzer />);
 
     expect(await screen.findByRole('heading', { name: 'Private Map' })).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:3008/project_maps?id=eq.msp-guides&select=*');
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:3008/project_maps?id=eq.private-project-map&select=*');
   });
 
   it('loads the fictional sample model on request', async () => {
@@ -190,6 +260,38 @@ describe('ProjectAnalyzer', () => {
     expect(screen.getAllByText('In progress')).toHaveLength(2);
     expect(screen.getByText('Phase 1')).toBeInTheDocument();
     expect(screen.getByText('docs/roadmap/PRODUCT-ROADMAP.md')).toBeInTheDocument();
+  });
+
+  it('tracks imported markdown documents and creates a new document record', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.upload(
+      screen.getByLabelText('Import project-analysis JSON'),
+      new File([JSON.stringify(privateFeatureFileMap)], 'private-map.json', { type: 'application/json' }),
+    );
+    await screen.findByRole('heading', { name: 'Private Map' });
+    await user.click(screen.getByRole('tab', { name: /MD Docs/i }));
+
+    expect(screen.getByRole('main', { name: 'Markdown document tracking' })).toBeInTheDocument();
+    expect(screen.getByText('Supabase Setup Context')).toBeInTheDocument();
+    expect(screen.getByText('docs/setup/SUPABASE-SETUP.md')).toBeInTheDocument();
+    expect(screen.getAllByText('Schema/API audit').length).toBeGreaterThanOrEqual(1);
+    await user.selectOptions(screen.getByLabelText('Markdown document alignment'), 'Schema/API audit');
+    expect(screen.getByText('Supabase Setup Context')).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Markdown document alignment'), 'all');
+
+    await user.type(screen.getByLabelText('Title'), 'MCP Security Checklist');
+    await user.type(screen.getByLabelText('Path'), 'docs/security/MCP-CHECKLIST.md');
+    await user.selectOptions(screen.getByLabelText('Purpose'), 'security');
+    await user.selectOptions(screen.getByLabelText('Feature'), 'briefs');
+    await user.type(screen.getByLabelText('Summary'), 'Tracks platform security gates for shared agent access.');
+    await user.type(screen.getByLabelText('Alignment targets'), 'Security audit');
+    await user.click(screen.getByRole('button', { name: /Add to map/i }));
+
+    expect(screen.getByText('MCP Security Checklist')).toBeInTheDocument();
+    expect(screen.getByText('docs/security/MCP-CHECKLIST.md')).toBeInTheDocument();
+    expect(screen.getAllByText('Security audit').length).toBeGreaterThanOrEqual(1);
   });
 
   it('opens feature details in a dialog instead of expanding the card inline', async () => {
@@ -257,6 +359,244 @@ describe('ProjectAnalyzer', () => {
     expect(screen.getAllByText('Needs mapping').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Needs retest').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('heading', { name: 'Next Actions' })).toBeInTheDocument();
+  });
+
+  it('shows a project work queue ordered by next work', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.click(screen.getByRole('button', { name: 'Load sample' }));
+    await user.click(screen.getByRole('tab', { name: /Work Queue/i }));
+
+    expect(screen.getByRole('main', { name: 'Project work queue' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Work Queue' })).toBeInTheDocument();
+    expect(screen.getByText('active actions')).toBeInTheDocument();
+    expect(screen.getByLabelText('Execution stage')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search queue, files, or QA')).toBeInTheDocument();
+    expect(screen.getByText('How To Use This Queue')).toBeInTheDocument();
+    expect(screen.getByText('Next Queue Upgrade')).toBeInTheDocument();
+    expect(screen.getAllByText('Brief Builder').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('updates execution status from the queue quick actions', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.click(screen.getByRole('button', { name: 'Load sample' }));
+    await user.click(screen.getByRole('tab', { name: /Work Queue/i }));
+
+    const briefCard = screen.getAllByRole('heading', { name: 'Brief Builder' })[0].closest('article');
+    expect(briefCard).not.toBeNull();
+
+    await user.click(within(briefCard as HTMLElement).getByRole('button', { name: 'Start work' }));
+    expect(within(briefCard as HTMLElement).getByText('Current work item')).toBeInTheDocument();
+
+    await user.click(within(briefCard as HTMLElement).getByRole('button', { name: 'Approve scope' }));
+    expect(within(briefCard as HTMLElement).getByText('Approved')).toBeInTheDocument();
+    expect(within(briefCard as HTMLElement).getByText('Approved for active scope')).toBeInTheDocument();
+  });
+
+  it('applies saved queue views and batch planning actions', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.upload(
+      screen.getByLabelText('Import project-analysis JSON'),
+      new File([JSON.stringify(privateFeatureFileMap)], 'private-map.json', { type: 'application/json' }),
+    );
+    await screen.findByRole('heading', { name: 'Private Map' });
+    await user.click(screen.getByRole('tab', { name: /Work Queue/i }));
+
+    await user.click(screen.getByRole('button', { name: /MCP Platform/i }));
+
+    expect(screen.getByLabelText('Work item type')).toHaveValue('mcp');
+    expect(screen.getByLabelText('Work item owner')).toHaveValue('Platform');
+    expect(screen.getByLabelText('Work item priority')).toHaveValue('high');
+    expect(screen.getByLabelText('Work item source')).toHaveValue('MCP platform MVP');
+    expect(screen.getByText('Define MCP client registry')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('View name'), 'Platform Review');
+    await user.click(screen.getByRole('button', { name: /Save current view/i }));
+    expect(screen.getByRole('button', { name: /Platform Review/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Start visible work/i }));
+    expect(screen.getAllByText('In progress').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('creates prepared work items from batch templates', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.upload(
+      screen.getByLabelText('Import project-analysis JSON'),
+      new File([JSON.stringify(privateFeatureFileMap)], 'private-map.json', { type: 'application/json' }),
+    );
+    await screen.findByRole('heading', { name: 'Private Map' });
+    await user.click(screen.getByRole('tab', { name: /Work Queue/i }));
+
+    expect(screen.getByLabelText('Batch template')).toHaveValue('batch-template-schema-docs');
+    expect(screen.getByText(/1 matching source/i)).toBeInTheDocument();
+    expect(screen.getByText(/No recorded template runs yet/i)).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Supabase Setup Context/i })).toBeChecked();
+    await user.click(screen.getByRole('checkbox', { name: /Supabase Setup Context/i }));
+    expect(screen.getByRole('button', { name: /Create batch work items/i })).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: /Supabase Setup Context/i }));
+
+    await user.clear(screen.getByLabelText('Template name'));
+    await user.type(screen.getByLabelText('Template name'), 'Schema Audit Weekly');
+    await user.clear(screen.getByLabelText('Title prefix'));
+    await user.type(screen.getByLabelText('Title prefix'), 'Schema weekly audit');
+    await user.click(screen.getByRole('button', { name: /Save template edits/i }));
+    expect(screen.getByText(/Saved template: Schema Audit Weekly/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Create batch work items/i }));
+
+    expect(screen.getAllByText('Schema weekly audit: Supabase Setup Context').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('schema-api-audit').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Created 1 work item from Schema Audit Weekly/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Created 1 work item from 1 source/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Supabase Setup Context/i).length).toBeGreaterThanOrEqual(2);
+    const runDetails = screen.getByRole('region', { name: /Selected batch template run/i });
+    expect(within(runDetails).getByText('Generated Work')).toBeInTheDocument();
+    await user.selectOptions(within(runDetails).getByLabelText('Run outcome score'), '4');
+    await user.type(within(runDetails).getByLabelText('Run outcome notes'), 'Useful audit batch for schema context.');
+    await user.click(within(runDetails).getByRole('button', { name: /Save run outcome/i }));
+    expect(screen.getByText(/Saved run outcome for Schema Audit Weekly/i)).toBeInTheDocument();
+    expect(screen.getByText(/Outcome score: 4\/5/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Useful audit batch for schema context.').length).toBeGreaterThanOrEqual(1);
+    await user.click(within(runDetails).getByRole('button', { name: 'Schema weekly audit: Supabase Setup Context' }));
+    expect(screen.getByPlaceholderText('Search queue, files, or QA')).toHaveValue('Schema weekly audit: Supabase Setup Context');
+    expect(screen.getByText(/Focused queue on run work item: Schema weekly audit: Supabase Setup Context/i)).toBeInTheDocument();
+    expect(screen.getByText(/0 new/i)).toBeInTheDocument();
+  });
+
+  it('creates and duplicates reusable batch templates', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.upload(
+      screen.getByLabelText('Import project-analysis JSON'),
+      new File([JSON.stringify(privateFeatureFileMap)], 'private-map.json', { type: 'application/json' }),
+    );
+    await screen.findByRole('heading', { name: 'Private Map' });
+    await user.click(screen.getByRole('tab', { name: /Work Queue/i }));
+
+    await user.click(screen.getByRole('button', { name: /Duplicate template/i }));
+    expect(screen.getByText(/Duplicated template: Schema Doc Audit Run Copy/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Template name')).toHaveValue('Schema Doc Audit Run Copy');
+
+    await user.click(screen.getByRole('button', { name: /New template/i }));
+    expect(screen.getByText(/Created template: New Batch Template/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Template name')).toHaveValue('New Batch Template');
+    expect(screen.getByText(/1 matching source/i)).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText('Template name'));
+    await user.type(screen.getByLabelText('Template name'), 'Ad Hoc Doc Run');
+    await user.clear(screen.getByLabelText('Title prefix'));
+    await user.type(screen.getByLabelText('Title prefix'), 'Ad hoc review');
+    await user.click(screen.getByRole('button', { name: /Save template edits/i }));
+    expect(screen.getByText(/Saved template: Ad Hoc Doc Run/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Create batch work items/i }));
+    expect(screen.getAllByText('Ad hoc review: Supabase Setup Context').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Created 1 work item from Ad Hoc Doc Run/i)).toBeInTheDocument();
+  });
+
+  it('guards batch template archive and delete actions', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.upload(
+      screen.getByLabelText('Import project-analysis JSON'),
+      new File([JSON.stringify(privateFeatureFileMap)], 'private-map.json', { type: 'application/json' }),
+    );
+    await screen.findByRole('heading', { name: 'Private Map' });
+    await user.click(screen.getByRole('tab', { name: /Work Queue/i }));
+
+    await user.click(screen.getByRole('button', { name: /Create batch work items/i }));
+    expect(screen.getByText(/1 generated work item/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Delete template/i })).toBeDisabled();
+    expect(screen.getByText(/Delete is unavailable because generated queue work still references this template/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Archive template/i }));
+    expect(screen.getByText(/Archived template: Schema Doc Audit Run/i)).toBeInTheDocument();
+    expect(screen.getByText(/All saved batch templates are archived/i)).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText(/Show archived templates/i));
+    expect(screen.getByRole('button', { name: /Restore template/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Create batch work items/i })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: /Restore template/i }));
+    expect(screen.getByText(/Restored template: Schema Doc Audit Run/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Duplicate template/i }));
+    expect(screen.getByText(/Duplicated template: Schema Doc Audit Run Copy/i)).toBeInTheDocument();
+    expect(screen.getByText(/0 generated work items/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Delete template/i })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: /Delete template/i }));
+    expect(screen.getByText(/Deleted template: Schema Doc Audit Run Copy/i)).toBeInTheDocument();
+  });
+
+  it('creates and updates dedicated project work items', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.upload(
+      screen.getByLabelText('Import project-analysis JSON'),
+      new File([JSON.stringify(privateFeatureFileMap)], 'private-map.json', { type: 'application/json' }),
+    );
+    await screen.findByRole('heading', { name: 'Private Map' });
+    await user.click(screen.getByRole('tab', { name: /Work Queue/i }));
+
+    expect(screen.getByText('Define MCP client registry')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /MCP Platform/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Work item type')).toBeInTheDocument();
+    expect(screen.getByLabelText('Work item owner')).toBeInTheDocument();
+    expect(screen.getByLabelText('Work item priority')).toBeInTheDocument();
+    expect(screen.getByLabelText('Work item source')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Title'), 'Build MCP tool schema audit');
+    await user.type(screen.getByLabelText('Summary'), 'Create work item for validating first MCP request and response schemas.');
+    await user.type(screen.getByLabelText('Next action'), 'List read-only tool schemas.');
+    await user.selectOptions(screen.getByLabelText('Type'), 'audit');
+    await user.selectOptions(screen.getByLabelText('Feature'), 'briefs');
+    await user.type(screen.getByLabelText('Tags'), 'mcp-platform-mvp, schema-api-audit');
+    await user.click(screen.getByRole('button', { name: /Add work item/i }));
+
+    const workCard = screen.getByRole('heading', { name: 'Build MCP tool schema audit' }).closest('article');
+    expect(workCard).not.toBeNull();
+    expect(within(workCard as HTMLElement).getByText('schema-api-audit')).toBeInTheDocument();
+
+    await user.click(within(workCard as HTMLElement).getByRole('button', { name: 'Start work' }));
+    expect(within(workCard as HTMLElement).getByText('In progress')).toBeInTheDocument();
+  });
+
+  it('queues work from markdown documents and QA items', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.upload(
+      screen.getByLabelText('Import project-analysis JSON'),
+      new File([JSON.stringify(privateFeatureFileMap)], 'private-map.json', { type: 'application/json' }),
+    );
+    await screen.findByRole('heading', { name: 'Private Map' });
+    await user.click(screen.getByRole('tab', { name: /MD Docs/i }));
+
+    const docCard = screen.getByRole('heading', { name: 'Supabase Setup Context' }).closest('article');
+    expect(docCard).not.toBeNull();
+    await user.click(within(docCard as HTMLElement).getByRole('button', { name: /Send to Work Queue/i }));
+
+    expect(screen.getByRole('heading', { name: 'Work Queue' })).toBeInTheDocument();
+    expect(screen.getByText('Review doc: Supabase Setup Context')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /^QA$/i }));
+    const qaCard = screen.getByRole('heading', { name: 'Brief create smoke test' }).closest('article');
+    expect(qaCard).not.toBeNull();
+    await user.click(within(qaCard as HTMLElement).getByRole('button', { name: /Send to Work Queue/i }));
+
+    expect(screen.getByRole('heading', { name: 'Work Queue' })).toBeInTheDocument();
+    expect(screen.getByText('Resolve QA: Brief create smoke test')).toBeInTheDocument();
   });
 
   it('saves MVP readiness decision fields on a feature', async () => {

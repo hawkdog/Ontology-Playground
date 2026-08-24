@@ -31,7 +31,7 @@ const privateQAProject: ProjectAnalysisModel = {
   releases: [{ id: 'mvp', name: 'MVP', horizon: 'Now' }],
   roadmapSources: [
     {
-      source: 'v2-ai-content-creator-app-358/docs/roadmap/PRODUCT-ROADMAP.md',
+      source: 'private-app/docs/roadmap/PRODUCT-ROADMAP.md',
       status: 'in-progress',
       phase: 'Phase 1',
       summary: 'Campaign planning remains part of the active product direction.',
@@ -53,7 +53,7 @@ const privateQAProject: ProjectAnalysisModel = {
       qaEvidenceFiles: ['docs/testing/QA_Testing_Execution_Tracker.xlsx'],
       roadmapSignals: [
         {
-          source: 'v2-ai-content-creator-app-358/docs/roadmap/PRODUCT-ROADMAP.md',
+          source: 'private-app/docs/roadmap/PRODUCT-ROADMAP.md',
           status: 'in-progress',
           phase: 'Phase 1',
           summary: 'Campaign planning remains part of the active product direction.',
@@ -116,7 +116,7 @@ describe('ProjectQADashboard', () => {
     expect(screen.getAllByText('Retest after MVP navigation changes land.').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('app/campaigns/[id]/brief.tsx')).toBeInTheDocument();
     expect(screen.getByText('Brief form screenshot')).toBeInTheDocument();
-    expect(screen.getAllByText('v2-ai-content-creator-app-358/docs/roadmap/PRODUCT-ROADMAP.md').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('private-app/docs/roadmap/PRODUCT-ROADMAP.md').length).toBeGreaterThanOrEqual(1);
   });
 
   it('adds a QA item mapped to a feature and file', async () => {
@@ -204,5 +204,108 @@ describe('ProjectQADashboard', () => {
 
     await user.click(within(gallery).getByRole('button', { name: 'Close image gallery' }));
     expect(screen.queryByRole('dialog', { name: 'brief-automated-smoke.png' })).not.toBeInTheDocument();
+  });
+
+  it('classifies QA item testability and dependency readiness', async () => {
+    const user = userEvent.setup();
+    const modelWithAutomatedItem: ProjectAnalysisModel = {
+      ...privateQAProject,
+      testingRuntime: {
+        schemaVersion: 'project-analysis.testing-runtime.v1',
+        scannerVersion: '1.0.0',
+        scannedAt: '2026-08-22T19:45:00.000Z',
+        workspaceRoot: 'private-workspace',
+        mapId: 'private-project-map',
+        tools: [
+          {
+            id: 'app:dependency:@playwright/test',
+            label: 'Playwright',
+            category: 'e2e-test',
+            status: 'available',
+            summary: 'Package is declared in App.',
+          },
+          {
+            id: 'docker',
+            label: 'Docker',
+            category: 'docker',
+            status: 'available',
+            summary: 'Docker CLI is available.',
+          },
+        ],
+        endpoints: [
+          {
+            id: 'localhost-5173',
+            label: 'Local app',
+            url: 'http://localhost:5173',
+            status: 'available',
+            statusCode: 200,
+            summary: 'Responded with HTTP 200.',
+          },
+        ],
+        repositories: [
+          {
+            repositoryId: 'app',
+            name: 'App',
+            path: 'private-workspace/app',
+            packageManager: 'npm',
+            scripts: ['dev', 'test'],
+            tools: ['@playwright/test'],
+          },
+        ],
+        notes: [],
+      },
+      qaItems: [
+        ...(privateQAProject.qaItems ?? []),
+        {
+          id: 'qa-brief-automated',
+          testId: 'APP-AUTO-001',
+          title: 'Automated brief route smoke',
+          type: 'automated-test',
+          status: 'ready',
+          priority: 'high',
+          summary: 'Run Playwright smoke against the brief route and capture a screenshot.',
+          featureIds: ['briefs'],
+          repositoryIds: ['app'],
+          fileRefs: ['tests/brief-route.spec.ts'],
+          automationCoverage: 'Playwright smoke',
+          attachments: [
+            {
+              id: 'auto-shot',
+              label: 'brief-route-smoke.png',
+              type: 'screenshot',
+              path: 'qa/screenshots/brief-route-smoke.png',
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<ProjectQADashboard model={modelWithAutomatedItem} autoLoad={false} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Testability' }));
+
+    expect(screen.getByRole('region', { name: 'QA testability report' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Testing Capability Report' })).toBeInTheDocument();
+    expect(screen.getAllByText('Manual only').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Automation-ready').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Capability Inventory')).toBeInTheDocument();
+    expect(screen.getByText('Scanner Snapshot')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'QA runtime status' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'QA Setup Readiness' })).toBeInTheDocument();
+    expect(screen.getByText('npm run qa:scan')).toBeInTheDocument();
+    expect(screen.getByText('Project DB')).toBeInTheDocument();
+    expect(screen.getByText('Local app')).toBeInTheDocument();
+    expect(screen.getByText('WordPress')).toBeInTheDocument();
+    expect(screen.getByText('Browser tests')).toBeInTheDocument();
+    expect(screen.getByText('1 reachable · 0 unavailable')).toBeInTheDocument();
+    expect(screen.getAllByText('Browser / UI runner').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Automated brief route smoke')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Testability level'), 'automation-ready');
+    expect(screen.getByText('Automated brief route smoke')).toBeInTheDocument();
+    expect(screen.queryByText('Brief create smoke test')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Open item' }));
+    expect(screen.getByRole('dialog', { name: 'Automated brief route smoke' })).toBeInTheDocument();
   });
 });
