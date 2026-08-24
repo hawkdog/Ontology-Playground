@@ -50,6 +50,19 @@ const privateFeatureFileMap = {
       tags: ['supabase', 'setup'],
       alignmentTargets: ['Schema/API audit', 'MCP server planning'],
       auditFindings: ['Confirm RLS notes stay aligned with the latest migration set.'],
+      appliesTo: ['supabase', 'rls', 'schema-api-audit'],
+      requiredChecks: ['Confirm RLS notes stay aligned before schema changes.'],
+      agentUseLevel: 'required',
+      resources: [
+        {
+          id: 'resource-supabase-rls',
+          title: 'Supabase RLS Docs',
+          url: 'https://supabase.com/docs/guides/database/postgres/row-level-security',
+          type: 'official-docs',
+          tags: ['supabase', 'rls'],
+          notes: 'Required for schema/API audit context.',
+        },
+      ],
     },
   ],
   workItems: [
@@ -277,21 +290,46 @@ describe('ProjectAnalyzer', () => {
     expect(screen.getByText('Supabase Setup Context')).toBeInTheDocument();
     expect(screen.getByText('docs/setup/SUPABASE-SETUP.md')).toBeInTheDocument();
     expect(screen.getAllByText('Schema/API audit').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('region', { name: 'Agent context pack summary' })).toBeInTheDocument();
+    expect(screen.getAllByText('Required').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Supabase RLS Docs')).toBeInTheDocument();
+    expect(screen.getByText('Confirm RLS notes stay aligned before schema changes.')).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText('Markdown document alignment'), 'Schema/API audit');
     expect(screen.getByText('Supabase Setup Context')).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText('Markdown document alignment'), 'all');
+    await user.selectOptions(screen.getByLabelText('Markdown document tag'), 'rls');
+    expect(screen.getByText('Supabase Setup Context')).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Markdown document tag'), 'all');
 
-    await user.type(screen.getByLabelText('Title'), 'MCP Security Checklist');
-    await user.type(screen.getByLabelText('Path'), 'docs/security/MCP-CHECKLIST.md');
+    await user.click(screen.getByLabelText('Title'));
+    await user.paste('MCP Security Checklist');
+    await user.click(screen.getByLabelText('Path'));
+    await user.paste('docs/security/MCP-CHECKLIST.md');
     await user.selectOptions(screen.getByLabelText('Purpose'), 'security');
+    await user.selectOptions(screen.getByLabelText('Agent use level'), 'required');
     await user.selectOptions(screen.getByLabelText('Feature'), 'briefs');
-    await user.type(screen.getByLabelText('Summary'), 'Tracks platform security gates for shared agent access.');
-    await user.type(screen.getByLabelText('Alignment targets'), 'Security audit');
+    await user.click(screen.getByLabelText('Summary'));
+    await user.paste('Tracks platform security gates for shared agent access.');
+    await user.click(screen.getByLabelText('Alignment targets'));
+    await user.paste('Security audit');
+    await user.click(screen.getByLabelText('Applies to'));
+    await user.paste('mcp, security');
+    await user.click(screen.getByLabelText('Required checks'));
+    await user.paste('Check MCP auth before exposing tools.');
+    await user.click(screen.getByLabelText('Resource title'));
+    await user.paste('MCP Authorization');
+    await user.click(screen.getByLabelText('Resource URL'));
+    await user.paste('https://modelcontextprotocol.io');
+    await user.selectOptions(screen.getByLabelText('Resource type'), 'official-docs');
+    await user.click(screen.getByLabelText('Resource tags'));
+    await user.paste('mcp, authorization');
     await user.click(screen.getByRole('button', { name: /Add to map/i }));
 
     expect(screen.getByText('MCP Security Checklist')).toBeInTheDocument();
     expect(screen.getByText('docs/security/MCP-CHECKLIST.md')).toBeInTheDocument();
     expect(screen.getAllByText('Security audit').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Check MCP auth before exposing tools.')).toBeInTheDocument();
+    expect(screen.getByText('MCP Authorization')).toBeInTheDocument();
   });
 
   it('opens feature details in a dialog instead of expanding the card inline', async () => {
@@ -451,9 +489,11 @@ describe('ProjectAnalyzer', () => {
     await user.click(screen.getByRole('checkbox', { name: /Supabase Setup Context/i }));
 
     await user.clear(screen.getByLabelText('Template name'));
-    await user.type(screen.getByLabelText('Template name'), 'Schema Audit Weekly');
+    await user.click(screen.getByLabelText('Template name'));
+    await user.paste('Schema Audit Weekly');
     await user.clear(screen.getByLabelText('Title prefix'));
-    await user.type(screen.getByLabelText('Title prefix'), 'Schema weekly audit');
+    await user.click(screen.getByLabelText('Title prefix'));
+    await user.paste('Schema weekly audit');
     await user.click(screen.getByRole('button', { name: /Save template edits/i }));
     expect(screen.getByText(/Saved template: Schema Audit Weekly/i)).toBeInTheDocument();
 
@@ -467,7 +507,8 @@ describe('ProjectAnalyzer', () => {
     const runDetails = screen.getByRole('region', { name: /Selected batch template run/i });
     expect(within(runDetails).getByText('Generated Work')).toBeInTheDocument();
     await user.selectOptions(within(runDetails).getByLabelText('Run outcome score'), '4');
-    await user.type(within(runDetails).getByLabelText('Run outcome notes'), 'Useful audit batch for schema context.');
+    await user.click(within(runDetails).getByLabelText('Run outcome notes'));
+    await user.paste('Useful audit batch for schema context.');
     await user.click(within(runDetails).getByRole('button', { name: /Save run outcome/i }));
     expect(screen.getByText(/Saved run outcome for Schema Audit Weekly/i)).toBeInTheDocument();
     expect(screen.getByText(/Outcome score: 4\/5/i)).toBeInTheDocument();

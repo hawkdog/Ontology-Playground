@@ -28,7 +28,9 @@ import {
   dispositionLabels,
   fileStatusColors,
   fileStatusLabels,
+  agentUseLevelLabels,
   markdownDocumentPurposeLabels,
+  markdownResourceTypeLabels,
   markdownDocumentSensitivityLabels,
   markdownDocumentStatusColors,
   markdownDocumentStatusLabels,
@@ -42,8 +44,10 @@ import {
   sampleProjectAnalysis,
   type FileReferenceStatus,
   type FeatureDisposition,
+  type AgentUseLevel,
   type MarkdownDocument,
   type MarkdownDocumentPurpose,
+  type MarkdownResourceType,
   type MarkdownDocumentSensitivity,
   type MarkdownDocumentStatus,
   type ProductFeature,
@@ -78,6 +82,8 @@ const qaStatusOrder: QAItemStatus[] = ['failed', 'blocked', 'needs-retest', 'par
 const qaTypeOrder: QAItemType[] = ['task', 'manual-test', 'automated-test', 'bug', 'note', 'decision', 'evidence'];
 const markdownDocumentStatusOrder: MarkdownDocumentStatus[] = ['draft', 'active', 'needs-review', 'aligned', 'stale', 'archived'];
 const markdownDocumentPurposeOrder: MarkdownDocumentPurpose[] = ['setup', 'architecture', 'security', 'audit', 'roadmap', 'qa', 'runbook', 'decision', 'reference', 'other'];
+const agentUseLevelOrder: AgentUseLevel[] = ['required', 'recommended', 'reference'];
+const markdownResourceTypeOrder: MarkdownResourceType[] = ['official-docs', 'standard', 'design-guide', 'repo', 'api-reference', 'internal-doc', 'tooling', 'other'];
 
 function scoreFeature(value: number, effort: number, risk: number): number {
   return value * 2 - effort - risk;
@@ -157,6 +163,10 @@ function makeId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}`;
 }
 
+function splitList(value: string): string[] {
+  return value.split(/\n|,/).map((item) => item.trim()).filter(Boolean);
+}
+
 function downloadProjectAnalysis(model: ProjectAnalysisModel): void {
   const blob = new Blob([`${JSON.stringify(model, null, 2)}\n`], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -182,6 +192,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
   const [documentPurposeFilter, setDocumentPurposeFilter] = useState<typeof all | MarkdownDocumentPurpose>(all);
   const [documentFeatureFilter, setDocumentFeatureFilter] = useState(all);
   const [documentAlignmentFilter, setDocumentAlignmentFilter] = useState(all);
+  const [documentTagFilter, setDocumentTagFilter] = useState(all);
   const [importError, setImportError] = useState<string | null>(null);
   const [apiMessage, setApiMessage] = useState<string | null>(null);
   const [apiBusy, setApiBusy] = useState(false);
@@ -207,6 +218,14 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     tags: '',
     alignmentTargets: '',
     auditFinding: '',
+    appliesTo: '',
+    requiredChecks: '',
+    agentUseLevel: 'reference' as AgentUseLevel,
+    resourceTitle: '',
+    resourceUrl: '',
+    resourceType: 'official-docs' as MarkdownResourceType,
+    resourceTags: '',
+    resourceNotes: '',
     bodyDraft: '',
     status: 'draft' as MarkdownDocumentStatus,
     purpose: 'reference' as MarkdownDocumentPurpose,
@@ -295,16 +314,45 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       if (documentPurposeFilter !== all && doc.purpose !== documentPurposeFilter) return false;
       if (documentFeatureFilter !== all && !(doc.featureIds ?? []).includes(documentFeatureFilter)) return false;
       if (documentAlignmentFilter !== all && !(doc.alignmentTargets ?? []).includes(documentAlignmentFilter)) return false;
+      if (documentTagFilter !== all) {
+        const contextTags = [
+          ...(doc.tags ?? []),
+          ...(doc.appliesTo ?? []),
+          ...(doc.resources ?? []).flatMap((resource) => resource.tags ?? []),
+        ];
+        if (!contextTags.some((tag) => tag.toLowerCase() === documentTagFilter.toLowerCase())) return false;
+      }
       if (repositoryFilter !== all && !(doc.repositoryIds ?? []).includes(repositoryFilter)) {
         const linkedFeatureMatchesRepo = (doc.featureIds ?? []).some((featureId) => featureById.get(featureId)?.repositoryIds.includes(repositoryFilter));
         if (!linkedFeatureMatchesRepo) return false;
       }
       return true;
     });
-  }, [documentAlignmentFilter, documentFeatureFilter, documentPurposeFilter, documentStatusFilter, featureById, repositoryFilter, workingModel]);
+  }, [documentAlignmentFilter, documentFeatureFilter, documentPurposeFilter, documentStatusFilter, documentTagFilter, featureById, repositoryFilter, workingModel]);
   const documentAlignmentTargets = useMemo(() => (
     Array.from(new Set((workingModel?.markdownDocuments ?? []).flatMap((doc) => doc.alignmentTargets ?? []))).sort()
   ), [workingModel]);
+  const documentTagOptions = useMemo(() => (
+    Array.from(new Set((workingModel?.markdownDocuments ?? []).flatMap((doc) => [
+      ...(doc.tags ?? []),
+      ...(doc.appliesTo ?? []),
+      ...(doc.resources ?? []).flatMap((resource) => resource.tags ?? []),
+    ]))).sort()
+  ), [workingModel]);
+  const documentContextSummary = useMemo(() => {
+    const useLevels = filteredMarkdownDocuments.reduce<Record<AgentUseLevel, number>>((counts, doc) => {
+      counts[doc.agentUseLevel ?? 'reference'] += 1;
+      return counts;
+    }, { required: 0, recommended: 0, reference: 0 });
+    const resourceCount = filteredMarkdownDocuments.reduce((count, doc) => count + (doc.resources?.length ?? 0), 0);
+    const requiredCheckCount = filteredMarkdownDocuments.reduce((count, doc) => count + (doc.requiredChecks?.length ?? 0), 0);
+    const contextTags = Array.from(new Set(filteredMarkdownDocuments.flatMap((doc) => [
+      ...(doc.tags ?? []),
+      ...(doc.appliesTo ?? []),
+      ...(doc.resources ?? []).flatMap((resource) => resource.tags ?? []),
+    ]))).sort();
+    return { useLevels, resourceCount, requiredCheckCount, contextTags };
+  }, [filteredMarkdownDocuments]);
 
   const totalFileReferences = (workingModel?.features ?? []).reduce((count, feature) => count + featureFileCount(feature), 0);
   const keptForMvp = (workingModel?.features ?? []).filter(
@@ -351,6 +399,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       setDocumentPurposeFilter(all);
       setDocumentFeatureFilter(all);
       setDocumentAlignmentFilter(all);
+      setDocumentTagFilter(all);
       setExpandedFeatureId(null);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : 'Unable to import that JSON file.');
@@ -372,6 +421,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     setDocumentPurposeFilter(all);
     setDocumentFeatureFilter(all);
     setDocumentAlignmentFilter(all);
+    setDocumentTagFilter(all);
   };
 
   const clearMap = () => {
@@ -388,6 +438,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     setDocumentPurposeFilter(all);
     setDocumentFeatureFilter(all);
     setDocumentAlignmentFilter(all);
+    setDocumentTagFilter(all);
     setExpandedFeatureId(null);
   };
 
@@ -409,6 +460,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       setDocumentPurposeFilter(all);
       setDocumentFeatureFilter(all);
       setDocumentAlignmentFilter(all);
+      setDocumentTagFilter(all);
       setExpandedFeatureId(null);
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : 'Unable to load the private database map.');
@@ -472,8 +524,13 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
 
   const addMarkdownDocument = () => {
     if (!workingModel || !documentDraft.title.trim() || !documentDraft.path.trim()) return;
-    const tags = documentDraft.tags.split(',').map((tag) => tag.trim()).filter(Boolean);
-    const alignmentTargets = documentDraft.alignmentTargets.split(/\n|,/).map((target) => target.trim()).filter(Boolean);
+    const tags = splitList(documentDraft.tags);
+    const alignmentTargets = splitList(documentDraft.alignmentTargets);
+    const appliesTo = splitList(documentDraft.appliesTo);
+    const requiredChecks = splitList(documentDraft.requiredChecks);
+    const resourceTags = splitList(documentDraft.resourceTags);
+    const resourceTitle = documentDraft.resourceTitle.trim();
+    const resourceUrl = documentDraft.resourceUrl.trim();
     const auditFindings = documentDraft.auditFinding.trim() ? [documentDraft.auditFinding.trim()] : [];
     const newDocument: MarkdownDocument = {
       id: makeId('md-doc'),
@@ -489,6 +546,17 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       tags,
       alignmentTargets,
       auditFindings,
+      appliesTo,
+      requiredChecks,
+      agentUseLevel: documentDraft.agentUseLevel,
+      resources: resourceTitle || resourceUrl ? [{
+        id: makeId('resource'),
+        title: resourceTitle || resourceUrl,
+        url: resourceUrl,
+        type: documentDraft.resourceType,
+        tags: resourceTags,
+        notes: documentDraft.resourceNotes.trim(),
+      }] : [],
       bodyDraft: documentDraft.bodyDraft.trim(),
     };
 
@@ -505,6 +573,14 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       tags: '',
       alignmentTargets: '',
       auditFinding: '',
+      appliesTo: '',
+      requiredChecks: '',
+      agentUseLevel: 'reference',
+      resourceTitle: '',
+      resourceUrl: '',
+      resourceType: 'official-docs',
+      resourceTags: '',
+      resourceNotes: '',
       bodyDraft: '',
       status: 'draft',
       purpose: documentDraft.purpose,
@@ -1217,6 +1293,41 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
                 <option value={all}>All alignment targets</option>
                 {documentAlignmentTargets.map((target) => <option key={target} value={target}>{target}</option>)}
               </select>
+              <select aria-label="Markdown document tag" value={documentTagFilter} onChange={(event) => setDocumentTagFilter(event.target.value)}>
+                <option value={all}>All context tags</option>
+                {documentTagOptions.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
+              </select>
+            </section>
+
+            <section className="analysis-resource-context" aria-label="Agent context pack summary">
+              <div>
+                <span className="analysis-kicker">Resource Library</span>
+                <h2>Agent Context Pack</h2>
+                <p>{filteredMarkdownDocuments.length} documents selected for the current filters.</p>
+              </div>
+              <dl>
+                <div>
+                  <dt>Required</dt>
+                  <dd>{documentContextSummary.useLevels.required}</dd>
+                </div>
+                <div>
+                  <dt>Recommended</dt>
+                  <dd>{documentContextSummary.useLevels.recommended}</dd>
+                </div>
+                <div>
+                  <dt>Resources</dt>
+                  <dd>{documentContextSummary.resourceCount}</dd>
+                </div>
+                <div>
+                  <dt>Checks</dt>
+                  <dd>{documentContextSummary.requiredCheckCount}</dd>
+                </div>
+              </dl>
+              {documentContextSummary.contextTags.length > 0 && (
+                <div className="analysis-chip-row" aria-label="Selected context tags">
+                  {documentContextSummary.contextTags.slice(0, 12).map((tag) => <span className="analysis-chip" key={tag}>{tag}</span>)}
+                </div>
+              )}
             </section>
 
             <section className="analysis-qa-list analysis-md-list">
@@ -1241,6 +1352,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
                   {doc.summary && <p>{doc.summary}</p>}
                   <div className="analysis-chip-row">
                     {doc.sensitivity && <span className="analysis-chip">{markdownDocumentSensitivityLabels[doc.sensitivity]}</span>}
+                    {doc.agentUseLevel && <span className="analysis-chip">{agentUseLevelLabels[doc.agentUseLevel]}</span>}
                     {(doc.repositoryIds ?? []).map((repoId) => <span className="analysis-chip" key={repoId}>{repositoryById.get(repoId)?.name ?? repoId}</span>)}
                     {(doc.featureIds ?? []).map((featureId) => (
                       <button className="analysis-chip-button" key={featureId} type="button" onClick={() => setExpandedFeatureId(featureId)}>
@@ -1249,6 +1361,12 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
                     ))}
                     {(doc.tags ?? []).map((tag) => <span className="analysis-chip" key={tag}>{tag}</span>)}
                   </div>
+                  {doc.appliesTo && doc.appliesTo.length > 0 && (
+                    <div className="analysis-md-note-block">
+                      <strong>Applies to</strong>
+                      <ul>{doc.appliesTo.map((target) => <li key={target}>{target}</li>)}</ul>
+                    </div>
+                  )}
                   {doc.alignmentTargets && doc.alignmentTargets.length > 0 && (
                     <div className="analysis-md-note-block">
                       <strong>Aligns to</strong>
@@ -1270,6 +1388,33 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
                       </ul>
                     </div>
                   )}
+                  {doc.requiredChecks && doc.requiredChecks.length > 0 && (
+                    <div className="analysis-md-note-block">
+                      <strong>Required checks</strong>
+                      <ul>{doc.requiredChecks.map((check) => <li key={check}>{check}</li>)}</ul>
+                    </div>
+                  )}
+                  {doc.resources && doc.resources.length > 0 && (
+                    <div className="analysis-md-note-block">
+                      <strong>Resources</strong>
+                      <ul className="analysis-resource-list">
+                        {doc.resources.map((resource) => (
+                          <li key={resource.id}>
+                            <span>
+                              {resource.url ? (
+                                <a href={resource.url} target="_blank" rel="noreferrer">{resource.title}</a>
+                              ) : resource.title}
+                              <small>{markdownResourceTypeLabels[resource.type]}</small>
+                              {resource.notes && <em>{resource.notes}</em>}
+                            </span>
+                            {resource.tags && resource.tags.length > 0 && (
+                              <span className="analysis-resource-tags">{resource.tags.join(', ')}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {doc.bodyDraft && <pre className="analysis-md-draft">{doc.bodyDraft}</pre>}
                   <button className="analysis-card-toggle analysis-card-toggle--secondary" type="button" onClick={() => enqueueDocumentWork(doc)}>
                     <Plus size={15} />
@@ -1281,7 +1426,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
           </section>
 
           <aside className="analysis-qa-composer analysis-md-composer">
-            <h2>Add MD Doc</h2>
+            <h2>Add MD Resource</h2>
             <label>
               <span>Title</span>
               <input value={documentDraft.title} onChange={(event) => setDocumentDraft({ ...documentDraft, title: event.target.value })} />
@@ -1313,6 +1458,12 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
               </select>
             </label>
             <label>
+              <span>Agent use level</span>
+              <select value={documentDraft.agentUseLevel} onChange={(event) => setDocumentDraft({ ...documentDraft, agentUseLevel: event.target.value as AgentUseLevel })}>
+                {agentUseLevelOrder.map((level) => <option key={level} value={level}>{agentUseLevelLabels[level]}</option>)}
+              </select>
+            </label>
+            <label>
               <span>Repository</span>
               <select value={documentDraft.repositoryId} onChange={(event) => setDocumentDraft({ ...documentDraft, repositoryId: event.target.value })}>
                 <option value="">No repository link</option>
@@ -1338,6 +1489,41 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
               <span>Alignment targets</span>
               <textarea rows={3} value={documentDraft.alignmentTargets} onChange={(event) => setDocumentDraft({ ...documentDraft, alignmentTargets: event.target.value })} />
             </label>
+            <label>
+              <span>Applies to</span>
+              <textarea rows={3} value={documentDraft.appliesTo} onChange={(event) => setDocumentDraft({ ...documentDraft, appliesTo: event.target.value })} />
+            </label>
+            <label>
+              <span>Required checks</span>
+              <textarea rows={3} value={documentDraft.requiredChecks} onChange={(event) => setDocumentDraft({ ...documentDraft, requiredChecks: event.target.value })} />
+            </label>
+            <div className="analysis-md-resource-fields">
+              <h3>Attached Resource</h3>
+              <label>
+                <span>Resource title</span>
+                <input value={documentDraft.resourceTitle} onChange={(event) => setDocumentDraft({ ...documentDraft, resourceTitle: event.target.value })} />
+              </label>
+              <label>
+                <span>Resource URL</span>
+                <input value={documentDraft.resourceUrl} onChange={(event) => setDocumentDraft({ ...documentDraft, resourceUrl: event.target.value })} />
+              </label>
+              <div className="analysis-qa-composer-grid">
+                <label>
+                  <span>Resource type</span>
+                  <select value={documentDraft.resourceType} onChange={(event) => setDocumentDraft({ ...documentDraft, resourceType: event.target.value as MarkdownResourceType })}>
+                    {markdownResourceTypeOrder.map((type) => <option key={type} value={type}>{markdownResourceTypeLabels[type]}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Resource tags</span>
+                  <input value={documentDraft.resourceTags} onChange={(event) => setDocumentDraft({ ...documentDraft, resourceTags: event.target.value })} />
+                </label>
+              </div>
+              <label>
+                <span>Resource notes</span>
+                <textarea rows={3} value={documentDraft.resourceNotes} onChange={(event) => setDocumentDraft({ ...documentDraft, resourceNotes: event.target.value })} />
+              </label>
+            </div>
             <label>
               <span>Audit note</span>
               <textarea rows={3} value={documentDraft.auditFinding} onChange={(event) => setDocumentDraft({ ...documentDraft, auditFinding: event.target.value })} />

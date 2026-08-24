@@ -6865,6 +6865,57 @@ body {
   gap: 10px;
 }
 
+.analysis-resource-context {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.analysis-resource-context h2 {
+  margin: 2px 0 4px;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.analysis-resource-context p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.analysis-resource-context dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.analysis-resource-context dl div {
+  display: grid;
+  gap: 2px;
+  padding: 9px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.analysis-resource-context dt {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.analysis-resource-context dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 800;
+}
+
 .analysis-md-note-block {
   display: grid;
   gap: 6px;
@@ -6897,6 +6948,30 @@ body {
   align-items: start;
 }
 
+.analysis-resource-list a {
+  color: var(--ms-blue);
+  font-weight: 700;
+}
+
+.analysis-resource-list small,
+.analysis-resource-list em,
+.analysis-resource-tags {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.analysis-resource-list em {
+  color: var(--text-secondary);
+  font-style: normal;
+}
+
+.analysis-resource-tags {
+  text-align: right;
+}
+
 .analysis-md-draft {
   max-height: 180px;
   margin: 0;
@@ -6910,6 +6985,22 @@ body {
   border-radius: var(--radius-sm);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.analysis-md-resource-fields {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.analysis-md-resource-fields h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.3;
 }
 
 .analysis-current-pill {

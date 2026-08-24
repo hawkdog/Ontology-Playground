@@ -13,6 +13,8 @@ export type QAAttachmentType = 'image' | 'screenshot' | 'document' | 'log' | 'li
 export type MarkdownDocumentStatus = 'draft' | 'active' | 'needs-review' | 'aligned' | 'stale' | 'archived';
 export type MarkdownDocumentPurpose = 'architecture' | 'setup' | 'roadmap' | 'audit' | 'qa' | 'security' | 'runbook' | 'decision' | 'reference' | 'other';
 export type MarkdownDocumentSensitivity = 'public' | 'internal' | 'private' | 'secret-free-summary';
+export type MarkdownResourceType = 'official-docs' | 'standard' | 'design-guide' | 'repo' | 'api-reference' | 'internal-doc' | 'tooling' | 'other';
+export type AgentUseLevel = 'required' | 'recommended' | 'reference';
 export type ProjectWorkItemStatus = 'todo' | 'ready' | 'in-progress' | 'blocked' | 'review' | 'done' | 'deferred';
 export type ProjectWorkItemType = 'mcp' | 'audit' | 'schema' | 'security' | 'qa' | 'doc' | 'roadmap' | 'feature' | 'integration' | 'task';
 export type ProjectWorkItemPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -193,7 +195,20 @@ export interface MarkdownDocument {
   tags?: string[];
   alignmentTargets?: string[];
   auditFindings?: string[];
+  appliesTo?: string[];
+  requiredChecks?: string[];
+  agentUseLevel?: AgentUseLevel;
+  resources?: MarkdownDocumentResource[];
   bodyDraft?: string;
+}
+
+export interface MarkdownDocumentResource {
+  id: string;
+  title: string;
+  url: string;
+  type: MarkdownResourceType;
+  tags?: string[];
+  notes?: string;
 }
 
 export interface ProjectWorkItem {
@@ -530,6 +545,23 @@ export const markdownDocumentSensitivityLabels: Record<MarkdownDocumentSensitivi
   'secret-free-summary': 'Secret-free summary',
 };
 
+export const markdownResourceTypeLabels: Record<MarkdownResourceType, string> = {
+  'official-docs': 'Official docs',
+  standard: 'Standard',
+  'design-guide': 'Design guide',
+  repo: 'Repository',
+  'api-reference': 'API reference',
+  'internal-doc': 'Internal doc',
+  tooling: 'Tooling',
+  other: 'Other',
+};
+
+export const agentUseLevelLabels: Record<AgentUseLevel, string> = {
+  required: 'Required',
+  recommended: 'Recommended',
+  reference: 'Reference',
+};
+
 export const projectWorkItemStatusLabels: Record<ProjectWorkItemStatus, string> = {
   todo: 'To do',
   ready: 'Ready',
@@ -728,6 +760,26 @@ function normalizeMarkdownDocumentSensitivity(value: unknown): MarkdownDocumentS
   if (!raw) return undefined;
   if (raw === 'sanitized' || raw === 'redacted' || raw === 'secret-free') return 'secret-free-summary';
   if (['public', 'internal', 'private', 'secret-free-summary'].includes(raw)) return raw as MarkdownDocumentSensitivity;
+  return undefined;
+}
+
+function normalizeMarkdownResourceType(value: unknown): MarkdownResourceType {
+  const raw = stringValue(value, 'other').trim().toLowerCase();
+  if (raw === 'docs' || raw === 'documentation' || raw === 'official') return 'official-docs';
+  if (raw === 'api' || raw === 'reference-api') return 'api-reference';
+  if (raw === 'design' || raw === 'ui' || raw === 'ux') return 'design-guide';
+  if (raw === 'repository' || raw === 'github') return 'repo';
+  if (raw === 'internal') return 'internal-doc';
+  if (['official-docs', 'standard', 'design-guide', 'repo', 'api-reference', 'internal-doc', 'tooling', 'other'].includes(raw)) return raw as MarkdownResourceType;
+  return 'other';
+}
+
+function normalizeAgentUseLevel(value: unknown): AgentUseLevel | undefined {
+  const raw = stringValue(value).trim().toLowerCase();
+  if (!raw) return undefined;
+  if (raw === 'must-use' || raw === 'must use' || raw === 'required-context') return 'required';
+  if (raw === 'recommended-context' || raw === 'suggested') return 'recommended';
+  if (['required', 'recommended', 'reference'].includes(raw)) return raw as AgentUseLevel;
   return undefined;
 }
 
@@ -930,9 +982,39 @@ function mapMarkdownDocuments(value: unknown): MarkdownDocument[] {
       tags: stringArray(doc.tags),
       alignmentTargets: stringArray(doc.alignmentTargets ?? doc.alignsTo ?? doc.targets),
       auditFindings: stringArray(doc.auditFindings ?? doc.findings),
+      appliesTo: stringArray(doc.appliesTo ?? doc.areas ?? doc.contextAreas),
+      requiredChecks: stringArray(doc.requiredChecks ?? doc.checks ?? doc.gates),
+      agentUseLevel: normalizeAgentUseLevel(doc.agentUseLevel ?? doc.useLevel ?? doc.agentUse),
+      resources: mapMarkdownDocumentResources(doc.resources ?? doc.resourceLinks ?? doc.links),
       bodyDraft: stringValue(doc.bodyDraft, stringValue(doc.body, stringValue(doc.content))),
     };
   }).filter((doc) => doc.title && doc.path);
+}
+
+function mapMarkdownDocumentResources(value: unknown): MarkdownDocumentResource[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item, index): MarkdownDocumentResource | undefined => {
+    if (typeof item === 'string') {
+      return {
+        id: `resource-${index + 1}`,
+        title: item,
+        url: item,
+        type: 'other' as MarkdownResourceType,
+      };
+    }
+    if (!isRecord(item)) return undefined;
+    const url = flexibleValue(item, ['url', 'href', 'link']);
+    const title = stringValue(item.title, stringValue(item.name, url || `Resource ${index + 1}`));
+    if (!url && !title) return undefined;
+    return {
+      id: stringValue(item.id, `resource-${index + 1}`),
+      title,
+      url,
+      type: normalizeMarkdownResourceType(item.type ?? item.kind),
+      tags: stringArray(item.tags),
+      notes: stringValue(item.notes, stringValue(item.description)),
+    };
+  }).filter((item): item is MarkdownDocumentResource => Boolean(item?.title || item?.url));
 }
 
 function mapProjectWorkItems(value: unknown): ProjectWorkItem[] {
@@ -1643,6 +1725,19 @@ export const sampleProjectAnalysis: ProjectAnalysisModel = {
       tags: ['setup', 'database', 'release'],
       alignmentTargets: ['MVP readiness', 'QA smoke checks'],
       auditFindings: ['Confirm the private database setup notes match the current local environment before release.'],
+      appliesTo: ['environment', 'database', 'release-readiness'],
+      requiredChecks: ['Confirm environment variables before launch checks.'],
+      agentUseLevel: 'required',
+      resources: [
+        {
+          id: 'resource-launch-runbook',
+          title: 'Launch environment runbook',
+          url: 'docs/setup/LAUNCH-SETUP.md',
+          type: 'internal-doc',
+          tags: ['setup', 'release'],
+          notes: 'Use this as required local context before changing launch setup assumptions.',
+        },
+      ],
     },
   ],
   workItems: [

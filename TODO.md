@@ -44,7 +44,14 @@
 - [x] Add batch-template run comparison views for repeated operations.
 - [x] Add batch-template recommendation signals from scored run history.
 - [x] Add batch-template recommendation filters and rollup across templates.
+- [x] Add resource-library metadata, tag filtering, required checks, and Agent Context Pack summaries to MD Docs.
 - [ ] Add batch-template rollup actions for scoring, archiving, and duplicating templates from signal groups.
+- [x] Start a Dockerized MCP MVP server with read-only context tools first.
+- [x] Add MCP read-only tools for project map, markdown context packs, resource-library records, work queue, QA status, and roadmap signals.
+- [x] Add MCP auth, tenant scoping, licensing checks, audit logging, and rate limits before cloud exposure.
+- [ ] Replace local MCP bearer policy with hosted OAuth/JWT validation, persistent audit logs, distributed rate limits, and billing-backed entitlements.
+- [ ] Add a UI polish/design-system pass that centralizes tokens and reusable components before a full redesign.
+- [ ] Update the GitHub fork description and merge the feature branch to main after this layer and current checks are clean.
 - [ ] Add automated roadmap-doc ingestion for feature and release visualization.
 - [ ] Add spreadsheet/roadmap import helpers that convert private QA trackers and roadmap markdown into project-analysis records.
 - [x] Add a QA testability/dependency report that classifies manual-only, AI-assisted, and automation-ready test items.

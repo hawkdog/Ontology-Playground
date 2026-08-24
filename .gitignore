@@ -39,4 +39,6 @@ internal-docs/
 release-review/
 data/codemind*.db
 **/codemind*.db
+data/mcp-audit*.jsonl
 .codemind/
+mcp-server/audit/

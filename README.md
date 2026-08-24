@@ -145,15 +145,48 @@ workspace, auto-loads the local Project Analyzer database so private product
 maps can stay outside this public repository. File references can carry local
 status labels such as mapped, existing, planned, orphan, and needs review, and
 features can include roadmap signals from local planning docs. The MD Docs tab
-tracks reusable markdown project memory such as setup notes, audit context,
-roadmaps, security checklists, and decision records, linking each document to
-features, repositories, status, sensitivity, alignment targets, and audit notes.
-Document filters can narrow the list by type, feature, or alignment target such
-as MCP platform MVP, schema/API audit, security baseline, and WordPress/plugin
+also acts as a lightweight resource library for reusable markdown project
+memory, standards, official references, design guidance, setup notes, audit
+context, roadmaps, security checklists, and decision records. Each document can
+link to features, repositories, status, sensitivity, alignment targets, context
+tags, applies-to areas, required checks, agent-use level, and attached resources.
+The tab summarizes the current filtered set as an Agent Context Pack so teams
+can see which required/recommended resources and checks would be supplied to
+agents before work begins. Document filters can narrow the list by type,
+feature, alignment target, or context tag such as MCP platform MVP, schema/API
+audit, security baseline, RLS, Supabase, UI design, and WordPress/plugin
 integration.
 Local deployments can also connect to a private Project Analyzer API for Load DB
 / Save DB workflows. The included sample is fictional, can be hidden with an
 environment flag, and exists only to demonstrate the workflow.
+
+### Project Context MCP Server
+
+The repo includes a first-pass local MCP server under `mcp-server/` that exposes
+Project Analyzer context as read-only tools for connected agents. The server can
+load context from a private project-analysis JSON file, the private Project
+Analyzer API, or the fictional sample map for demos. It exposes
+`server/discover`, `tools/list`, `tools/call`, and `GET /health`, with tools for
+project summaries, markdown context packs, resource-library records, work queue
+items, QA status, and roadmap signals.
+The local MVP guardrail layer supports bearer client policies, tenant metadata,
+license-plan gates, per-tool scopes, audit logging, and per-client rate limits.
+
+Run it locally with:
+
+```bash
+npm run mcp:dev
+```
+
+Or run the Dockerized server with:
+
+```bash
+docker compose -f mcp-server/compose.yaml up --build
+```
+
+See [`mcp-server/README.md`](mcp-server/README.md) and
+[`docs/MCP-MVP-SERVER.md`](docs/MCP-MVP-SERVER.md) for tool details, data source
+order, and remaining security items before cloud exposure.
 
 ### QA Dashboard
 
@@ -352,6 +385,18 @@ GitHub Pages build so asset paths resolve correctly.
 | `VITE_PROJECT_ANALYSIS_APP_URL` | *(empty)* | Optional local app URL included in scanner endpoint checks |
 | `VITE_PROJECT_ANALYSIS_WORDPRESS_URL` | *(empty)* | Optional local WordPress URL included in scanner endpoint checks |
 | `VITE_PROJECT_ANALYSIS_TEST_WORDPRESS_URL` | *(empty)* | Optional local WordPress test-site URL included in scanner endpoint checks |
+| `PROJECT_ANALYSIS_SOURCE_FILE` | *(empty)* | Optional local project-analysis JSON file used by the MCP server before API/sample fallback |
+| `PROJECT_ANALYSIS_API_URL` | *(empty)* | Optional private Project Analyzer API base URL used by the MCP server |
+| `PROJECT_ANALYSIS_MAP_ID` | `project-analysis-local` | Project map row id used by the MCP server |
+| `PROJECT_ANALYSIS_ALLOW_SAMPLE` | `true` | Set to `false` to disable fictional sample fallback in the MCP server |
+| `MCP_HTTP_HOST` | `127.0.0.1` | Host used by `npm run mcp:dev`; Docker sets this to `0.0.0.0` |
+| `MCP_HTTP_PORT` | `3333` | HTTP port for the local MCP server |
+| `MCP_AUTH_REQUIRED` | loopback: `false`, non-loopback: `true` | Require bearer client authentication for `/mcp` requests |
+| `MCP_CLIENTS_JSON` | *(empty)* | JSON array of local MVP client policies with tenant, token/tokenHash, license plan, scopes, and rate limits |
+| `MCP_CLIENTS_FILE` | *(empty)* | Path to a JSON file containing the same client policy array |
+| `MCP_AUDIT_LOG_PATH` | `data/mcp-audit.jsonl` | JSONL audit log path for auth/tool metadata without request bodies or tool results |
+| `MCP_RATE_LIMIT_PER_MINUTE` | `60` | Default per-client/per-tool rate limit when a client policy does not override it |
+| `MCP_INCLUDE_PRIVATE_CONTEXT` | `true` | Set to `false` to exclude private MD Docs from MCP tool results |
 
 ## Project Structure
 

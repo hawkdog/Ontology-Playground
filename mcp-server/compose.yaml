@@ -1,0 +1,23 @@
+services:
+  project-context-mcp:
+    build:
+      context: ..
+      dockerfile: mcp-server/Dockerfile
+    ports:
+      - "${MCP_HTTP_PORT:-3333}:3333"
+    environment:
+      MCP_HTTP_HOST: 0.0.0.0
+      MCP_HTTP_PORT: 3333
+      MCP_AUTH_REQUIRED: "${MCP_AUTH_REQUIRED:-true}"
+      MCP_CLIENTS_JSON: "${MCP_CLIENTS_JSON:-}"
+      MCP_CLIENTS_FILE: "${MCP_CLIENTS_FILE:-}"
+      MCP_AUDIT_LOG_PATH: "${MCP_AUDIT_LOG_PATH:-/app/audit/mcp-audit.jsonl}"
+      MCP_RATE_LIMIT_PER_MINUTE: "${MCP_RATE_LIMIT_PER_MINUTE:-60}"
+      MCP_INCLUDE_PRIVATE_CONTEXT: "${MCP_INCLUDE_PRIVATE_CONTEXT:-true}"
+      PROJECT_ANALYSIS_ALLOW_SAMPLE: "${PROJECT_ANALYSIS_ALLOW_SAMPLE:-true}"
+      PROJECT_ANALYSIS_API_URL: "${PROJECT_ANALYSIS_API_URL:-}"
+      PROJECT_ANALYSIS_MAP_ID: "${PROJECT_ANALYSIS_MAP_ID:-project-analysis-local}"
+      PROJECT_ANALYSIS_SOURCE_FILE: "${PROJECT_ANALYSIS_SOURCE_FILE:-}"
+    volumes:
+      - ../data:/app/data:ro
+      - ./audit:/app/audit
