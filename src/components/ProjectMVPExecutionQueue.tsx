@@ -104,6 +104,23 @@ interface DedicatedWorkQueueItem {
 
 type WorkQueueItem = ExecutionItem | DedicatedWorkQueueItem;
 type QueueItemTypeFilter = ProjectQueueViewType;
+type BatchTemplateRecommendationLabel = 'Run Template' | 'Score Latest Run' | 'Reuse' | 'Watch' | 'No New Work' | 'Revise' | 'Review' | 'Archived';
+type BatchTemplateRecommendationTone = 'ready' | 'review' | 'watch' | 'revise' | 'archived';
+
+interface BatchTemplateRecommendation {
+  label: BatchTemplateRecommendationLabel;
+  summary: string;
+  metric: string;
+  tone: BatchTemplateRecommendationTone;
+}
+
+interface BatchTemplateRunComparison {
+  latestRun: ProjectBatchTemplateRun;
+  previousRun: ProjectBatchTemplateRun;
+  createdDelta: number;
+  sourceDelta: number;
+  scoreDelta: number;
+}
 
 interface BatchTemplateSourceRecord {
   sourceType: ProjectBatchTemplateSource;
@@ -126,6 +143,7 @@ const workItemTypeOrder: ProjectWorkItemType[] = ['mcp', 'audit', 'schema', 'sec
 const queueItemTypeOrder: QueueItemTypeFilter[] = [featureDerivedType, ...workItemTypeOrder];
 const workItemPriorityOrder: ProjectWorkItemPriority[] = ['critical', 'high', 'medium', 'low'];
 const batchTemplateSourceOrder: ProjectBatchTemplateSource[] = ['markdown-documents', 'qa-items', 'roadmap-items', 'roadmap-sources', 'features'];
+const batchTemplateRecommendationOrder: BatchTemplateRecommendationLabel[] = ['Score Latest Run', 'Reuse', 'Watch', 'No New Work', 'Revise', 'Review', 'Run Template', 'Archived'];
 const markdownDocumentPurposeOrder: MarkdownDocumentPurpose[] = ['setup', 'architecture', 'security', 'audit', 'roadmap', 'qa', 'runbook', 'decision', 'reference', 'other'];
 const markdownDocumentStatusOrder: MarkdownDocumentStatus[] = ['draft', 'active', 'needs-review', 'aligned', 'stale', 'archived'];
 const qaPriorityOrder: QAItemPriority[] = ['critical', 'high', 'medium', 'low', 'support', 'conditional', 'future'];
@@ -321,6 +339,106 @@ function tagsInclude(tags: string[] | undefined, tag?: string): boolean {
 
 function templateSourceKey(template: ProjectBatchTemplate, source: BatchTemplateSourceRecord): string {
   return `${template.id}:${source.sourceType}:${source.id}`;
+}
+
+function batchTemplateRunComparison(runHistory: ProjectBatchTemplateRun[]): BatchTemplateRunComparison | undefined {
+  if (runHistory.length < 2) return undefined;
+  const [latestRun, previousRun] = runHistory;
+  const latestScore = latestRun.outcomeScore ?? 0;
+  const previousScore = previousRun.outcomeScore ?? 0;
+  return {
+    latestRun,
+    previousRun,
+    createdDelta: latestRun.createdWorkItemCount - previousRun.createdWorkItemCount,
+    sourceDelta: latestRun.sourceCount - previousRun.sourceCount,
+    scoreDelta: latestScore - previousScore,
+  };
+}
+
+function batchTemplateRecommendation(
+  template: ProjectBatchTemplate,
+  runHistory: ProjectBatchTemplateRun[],
+  comparison?: BatchTemplateRunComparison,
+): BatchTemplateRecommendation {
+  if (template.archivedAt) {
+    return {
+      label: 'Archived',
+      summary: 'Restore or duplicate this template before reusing it for new work.',
+      metric: 'Archived templates stay available for history only.',
+      tone: 'archived',
+    };
+  }
+
+  if (runHistory.length === 0) {
+    return {
+      label: 'Run Template',
+      summary: 'Run this template once to collect recommendation signals.',
+      metric: 'No scored runs yet.',
+      tone: 'review',
+    };
+  }
+
+  const [latestRun] = runHistory;
+  const scoredRuns = runHistory.filter((run) => typeof run.outcomeScore === 'number' && run.outcomeScore > 0);
+  const latestScoredRun = scoredRuns[0];
+  const averageScore = scoredRuns.length > 0
+    ? scoredRuns.reduce((sum, run) => sum + (run.outcomeScore ?? 0), 0) / scoredRuns.length
+    : 0;
+  const metric = scoredRuns.length > 0
+    ? `Average score ${averageScore.toFixed(1)}/5 across ${scoredRuns.length} scored run${scoredRuns.length === 1 ? '' : 's'}.`
+    : 'No scored runs yet.';
+
+  if (!latestRun.outcomeScore) {
+    return {
+      label: 'Score Latest Run',
+      summary: 'Score the latest run to improve reuse guidance before scaling this template.',
+      metric,
+      tone: 'review',
+    };
+  }
+
+  if ((latestScoredRun?.outcomeScore ?? 0) <= 2 || averageScore <= 2.5) {
+    return {
+      label: 'Revise',
+      summary: 'Recent scoring suggests this template needs tuning before reuse.',
+      metric,
+      tone: 'revise',
+    };
+  }
+
+  if (comparison && comparison.scoreDelta < 0) {
+    return {
+      label: 'Watch',
+      summary: 'The latest score dropped versus the previous run; compare source fit before reusing.',
+      metric,
+      tone: 'watch',
+    };
+  }
+
+  if (comparison && latestRun.createdWorkItemCount === 0 && comparison.createdDelta < 0) {
+    return {
+      label: 'No New Work',
+      summary: 'The latest rerun found no new work; useful for freshness checks before generating more.',
+      metric,
+      tone: 'watch',
+    };
+  }
+
+  if ((latestScoredRun?.outcomeScore ?? 0) >= 4 && averageScore >= 4) {
+    return {
+      label: 'Reuse',
+      summary: 'Recent scored runs are strong; this template is ready to reuse for similar sources.',
+      metric,
+      tone: 'ready',
+    };
+  }
+
+  return {
+    label: 'Review',
+    summary: 'Run history is useful but mixed; review the latest result before scaling this template.',
+    metric,
+    tone: 'review',
+  };
 }
 
 function templateDraftFromTemplate(template?: ProjectBatchTemplate) {
@@ -567,6 +685,7 @@ export function ProjectMVPExecutionQueue({
   const [selectedTemplateId, setSelectedTemplateId] = useState(initialTemplate?.id ?? '');
   const [selectedTemplateRunId, setSelectedTemplateRunId] = useState('');
   const [showArchivedTemplates, setShowArchivedTemplates] = useState(false);
+  const [templateRecommendationFilter, setTemplateRecommendationFilter] = useState<typeof all | BatchTemplateRecommendationLabel>(all);
   const [templateDraft, setTemplateDraft] = useState(() => templateDraftFromTemplate(initialTemplate));
   const [selectedTemplateSourceKeys, setSelectedTemplateSourceKeys] = useState<string[]>([]);
   const [templateRunMessage, setTemplateRunMessage] = useState('');
@@ -647,12 +766,50 @@ export function ProjectMVPExecutionQueue({
   const batchableWorkItemCount = batchableItems.filter((item) => item.kind === 'work-item').length;
   const batchableFeatureCount = batchableItems.filter((item) => item.kind === 'feature').length;
   const canBatchVisible = batchableItems.some((item) => (item.kind === 'work-item' ? Boolean(onUpdateWorkItem) : Boolean(onUpdateFeature)));
-  const batchTemplates = model.batchTemplates ?? [];
+  const batchTemplates = useMemo(() => model.batchTemplates ?? [], [model.batchTemplates]);
   const activeBatchTemplates = batchTemplates.filter((template) => !template.archivedAt);
   const archivedBatchTemplates = batchTemplates.filter((template) => template.archivedAt);
   const selectableBatchTemplates = showArchivedTemplates ? batchTemplates : activeBatchTemplates;
   const selectedTemplate = selectableBatchTemplates.find((template) => template.id === selectedTemplateId) ?? selectableBatchTemplates[0];
   const previousSelectedTemplateId = useRef(selectedTemplate?.id ?? '');
+  const templateRollups = useMemo(() => (
+    batchTemplates.map((template) => {
+      const runHistory = template.runHistory ?? [];
+      const comparison = batchTemplateRunComparison(runHistory);
+      const recommendation = batchTemplateRecommendation(template, runHistory, comparison);
+      const generatedCount = (model.workItems ?? []).filter((item) => item.sourceId?.startsWith(`${template.id}:`)).length;
+      const scoredRunCount = runHistory.filter((run) => typeof run.outcomeScore === 'number' && run.outcomeScore > 0).length;
+      return {
+        template,
+        recommendation,
+        comparison,
+        generatedCount,
+        runCount: runHistory.length,
+        scoredRunCount,
+        latestRunAt: runHistory[0]?.ranAt ?? template.lastRunAt,
+      };
+    })
+  ), [batchTemplates, model.workItems]);
+  const templateRecommendationCounts = useMemo(() => {
+    const countsByLabel = batchTemplateRecommendationOrder.reduce<Record<BatchTemplateRecommendationLabel, number>>((acc, label) => {
+      acc[label] = 0;
+      return acc;
+    }, {
+      'Run Template': 0,
+      'Score Latest Run': 0,
+      Reuse: 0,
+      Watch: 0,
+      'No New Work': 0,
+      Revise: 0,
+      Review: 0,
+      Archived: 0,
+    });
+    for (const rollup of templateRollups) countsByLabel[rollup.recommendation.label] += 1;
+    return countsByLabel;
+  }, [templateRollups]);
+  const visibleTemplateRollups = useMemo(() => (
+    templateRollups.filter((rollup) => templateRecommendationFilter === all || rollup.recommendation.label === templateRecommendationFilter)
+  ), [templateRecommendationFilter, templateRollups]);
   const editableTemplate = useMemo(() => (
     selectedTemplate ? templateFromDraft(selectedTemplate, templateDraft) : undefined
   ), [selectedTemplate, templateDraft]);
@@ -671,6 +828,10 @@ export function ProjectMVPExecutionQueue({
     const workItemsById = new Map((model.workItems ?? []).map((item) => [item.id, item]));
     return selectedTemplateRun.createdWorkItemIds.map((itemId) => workItemsById.get(itemId)).filter((item): item is ProjectWorkItem => Boolean(item));
   }, [model.workItems, selectedTemplateRun]);
+  const templateRunComparison = useMemo(() => batchTemplateRunComparison(templateRunHistory), [templateRunHistory]);
+  const templateRecommendation = useMemo(() => (
+    editableTemplate ? batchTemplateRecommendation(editableTemplate, templateRunHistory, templateRunComparison) : undefined
+  ), [editableTemplate, templateRunComparison, templateRunHistory]);
   const missingRunWorkItemIds = useMemo(() => (
     selectedTemplateRun
       ? selectedTemplateRun.createdWorkItemIds.filter((itemId) => !selectedRunWorkItems.some((item) => item.id === itemId))
@@ -800,35 +961,56 @@ export function ProjectMVPExecutionQueue({
     };
   };
 
+  const recordTemplateRun = (createdItems: ProjectWorkItem[], sources: BatchTemplateSourceRecord[], summary: string): ProjectBatchTemplateRun | undefined => {
+    if (!selectedTemplate || !editableTemplate || !onUpdateBatchTemplate) return undefined;
+    const ranAt = new Date().toISOString();
+    const run: ProjectBatchTemplateRun = {
+      id: makeBatchTemplateRunId(),
+      ranAt,
+      sourceCount: sources.length,
+      createdWorkItemCount: createdItems.length,
+      createdWorkItemIds: createdItems.map((item) => item.id),
+      sourceTitles: sources.map((source) => source.title),
+      summary,
+    };
+    onUpdateBatchTemplate(selectedTemplate.id, {
+      ...editableTemplate,
+      lastRunAt: ranAt,
+      lastRunItemCount: createdItems.length,
+      lastRunSourceCount: sources.length,
+      lastRunWorkItemIds: createdItems.map((item) => item.id),
+      runHistory: [run, ...(editableTemplate.runHistory ?? [])].slice(0, 8),
+    });
+    setSelectedTemplateRunId(run.id);
+    return run;
+  };
+
   const runSelectedTemplate = () => {
     if (!editableTemplate || !onAddWorkItem) return;
     const newItems = selectedNewTemplateSources.map((source) => createWorkItemFromTemplate(editableTemplate, source));
     for (const item of newItems) onAddWorkItem(item);
-    if (selectedTemplate && newItems.length > 0 && onUpdateBatchTemplate) {
-      const ranAt = new Date().toISOString();
-      const run: ProjectBatchTemplateRun = {
-        id: makeBatchTemplateRunId(),
-        ranAt,
-        sourceCount: selectedNewTemplateSources.length,
-        createdWorkItemCount: newItems.length,
-        createdWorkItemIds: newItems.map((item) => item.id),
-        sourceTitles: selectedNewTemplateSources.map((source) => source.title),
-        summary: `Created ${newItems.length} work item${newItems.length === 1 ? '' : 's'} from ${selectedNewTemplateSources.length} source${selectedNewTemplateSources.length === 1 ? '' : 's'}.`,
-      };
-      onUpdateBatchTemplate(selectedTemplate.id, {
-        ...editableTemplate,
-        lastRunAt: ranAt,
-        lastRunItemCount: newItems.length,
-        lastRunSourceCount: selectedNewTemplateSources.length,
-        lastRunWorkItemIds: newItems.map((item) => item.id),
-        runHistory: [run, ...(editableTemplate.runHistory ?? [])].slice(0, 8),
-      });
+    if (newItems.length > 0) {
+      recordTemplateRun(
+        newItems,
+        selectedNewTemplateSources,
+        `Created ${newItems.length} work item${newItems.length === 1 ? '' : 's'} from ${selectedNewTemplateSources.length} source${selectedNewTemplateSources.length === 1 ? '' : 's'}.`,
+      );
     }
     setTemplateRunMessage(
       newItems.length === 0
         ? `No new work items created for ${editableTemplate.name}.`
         : `Created ${newItems.length} work item${newItems.length === 1 ? '' : 's'} from ${editableTemplate.name}.`,
     );
+  };
+
+  const recordSelectedTemplateRerun = () => {
+    if (!editableTemplate || selectedTemplateSources.length === 0) return;
+    recordTemplateRun(
+      [],
+      selectedTemplateSources,
+      `Rerun check found ${selectedTemplateSources.length} matching source${selectedTemplateSources.length === 1 ? '' : 's'} and created 0 new work items.`,
+    );
+    setTemplateRunMessage(`Recorded rerun check for ${editableTemplate.name}.`);
   };
 
   const saveSelectedTemplate = () => {
@@ -1273,6 +1455,61 @@ export function ProjectMVPExecutionQueue({
           {batchTemplates.length > 0 && activeBatchTemplates.length === 0 && !showArchivedTemplates && (
             <p>All saved batch templates are archived. Turn on archived templates to review or restore them.</p>
           )}
+          {batchTemplates.length > 0 && (
+            <section className="analysis-template-rollup" aria-label="Batch template recommendation rollup">
+              <strong>Template Signals</strong>
+              <span>{visibleTemplateRollups.length} of {batchTemplates.length} template{batchTemplates.length === 1 ? '' : 's'} shown by recommendation state.</span>
+              <div className="analysis-template-signal-filters" role="group" aria-label="Template recommendation filters">
+                <button
+                  type="button"
+                  className="analysis-chip-button"
+                  aria-pressed={templateRecommendationFilter === all}
+                  onClick={() => setTemplateRecommendationFilter(all)}
+                >
+                  All {batchTemplates.length}
+                </button>
+                {batchTemplateRecommendationOrder.filter((label) => templateRecommendationCounts[label] > 0).map((label) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className="analysis-chip-button"
+                    aria-pressed={templateRecommendationFilter === label}
+                    onClick={() => setTemplateRecommendationFilter(label)}
+                  >
+                    {label} {templateRecommendationCounts[label]}
+                  </button>
+                ))}
+              </div>
+              <div className="analysis-template-rollup-list">
+                {visibleTemplateRollups.slice(0, 5).map((rollup) => (
+                  <button
+                    key={rollup.template.id}
+                    type="button"
+                    className={`analysis-template-rollup-item analysis-template-rollup-item--${rollup.recommendation.tone}`}
+                    onClick={() => {
+                      if (rollup.template.archivedAt) setShowArchivedTemplates(true);
+                      setSelectedTemplateId(rollup.template.id);
+                      setSelectedTemplateRunId('');
+                      setTemplateRunMessage(`Selected template: ${rollup.template.name}.`);
+                    }}
+                    aria-pressed={selectedTemplate?.id === rollup.template.id}
+                  >
+                    <span>
+                      <strong>{rollup.recommendation.label}</strong>
+                      <em>{rollup.template.name}</em>
+                    </span>
+                    <small>
+                      {rollup.runCount} run{rollup.runCount === 1 ? '' : 's'}
+                      {' · '}{rollup.scoredRunCount} scored
+                      {' · '}{rollup.generatedCount} generated
+                      {rollup.latestRunAt ? ` · latest ${rollup.latestRunAt}` : ' · no runs yet'}
+                    </small>
+                  </button>
+                ))}
+              </div>
+              {visibleTemplateRollups.length === 0 && <span>No templates match this signal filter.</span>}
+            </section>
+          )}
           {editableTemplate && (
             <>
               <label>
@@ -1311,6 +1548,16 @@ export function ProjectMVPExecutionQueue({
                   </span>
                 ) : (
                   <span>No recorded template runs yet.</span>
+                )}
+                {templateRecommendation && (
+                  <div
+                    className={`analysis-template-recommendation analysis-template-recommendation--${templateRecommendation.tone}`}
+                    role="status"
+                  >
+                    <strong>{templateRecommendation.label}</strong>
+                    <span>{templateRecommendation.summary}</span>
+                    <em>{templateRecommendation.metric}</em>
+                  </div>
                 )}
                 {editableTemplate.runHistory && editableTemplate.runHistory.length > 0 && (
                   <ol>
@@ -1382,6 +1629,27 @@ export function ProjectMVPExecutionQueue({
                       <ClipboardCheck size={14} />
                       Save run outcome
                     </button>
+                  </div>
+                )}
+                {templateRunComparison && (
+                  <div className="analysis-run-comparison" role="region" aria-label="Batch template run comparison">
+                    <strong>Run Comparison</strong>
+                    <span>Latest run compared with previous run.</span>
+                    <dl>
+                      <div>
+                        <dt>Created work</dt>
+                        <dd>{templateRunComparison.latestRun.createdWorkItemCount} ({templateRunComparison.createdDelta >= 0 ? '+' : ''}{templateRunComparison.createdDelta})</dd>
+                      </div>
+                      <div>
+                        <dt>Sources</dt>
+                        <dd>{templateRunComparison.latestRun.sourceCount} ({templateRunComparison.sourceDelta >= 0 ? '+' : ''}{templateRunComparison.sourceDelta})</dd>
+                      </div>
+                      <div>
+                        <dt>Score</dt>
+                        <dd>{templateRunComparison.latestRun.outcomeScore ?? 'Unscored'} ({templateRunComparison.scoreDelta >= 0 ? '+' : ''}{templateRunComparison.scoreDelta})</dd>
+                      </div>
+                    </dl>
+                    <em>Previous: {templateRunComparison.previousRun.summary}</em>
                   </div>
                 )}
               </section>
@@ -1560,6 +1828,10 @@ export function ProjectMVPExecutionQueue({
               <button className="analysis-card-toggle" type="button" onClick={runSelectedTemplate} disabled={!editableTemplate || selectedTemplateArchived || !onAddWorkItem || selectedNewTemplateSources.length === 0}>
                 <Plus size={14} />
                 Create batch work items
+              </button>
+              <button className="analysis-card-toggle analysis-card-toggle--secondary" type="button" onClick={recordSelectedTemplateRerun} disabled={!editableTemplate || selectedTemplateArchived || !onUpdateBatchTemplate || selectedTemplateSources.length === 0}>
+                <ClipboardCheck size={14} />
+                Record rerun check
               </button>
             </>
           )}

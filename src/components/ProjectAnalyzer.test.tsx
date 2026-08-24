@@ -437,6 +437,11 @@ describe('ProjectAnalyzer', () => {
     expect(screen.getByLabelText('Batch template')).toHaveValue('batch-template-schema-docs');
     expect(screen.getByText(/1 matching source/i)).toBeInTheDocument();
     expect(screen.getByText(/No recorded template runs yet/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Run Template').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Run this template once to collect recommendation signals/i)).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /Batch template recommendation rollup/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /All 1/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Run Template 1/i })).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: /Supabase Setup Context/i })).toBeChecked();
     await user.click(screen.getByRole('checkbox', { name: /Supabase Setup Context/i }));
     expect(screen.getByRole('button', { name: /Create batch work items/i })).toBeDisabled();
@@ -464,10 +469,25 @@ describe('ProjectAnalyzer', () => {
     expect(screen.getByText(/Saved run outcome for Schema Audit Weekly/i)).toBeInTheDocument();
     expect(screen.getByText(/Outcome score: 4\/5/i)).toBeInTheDocument();
     expect(screen.getAllByText('Useful audit batch for schema context.').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Reuse').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Recent scored runs are strong/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Reuse 1/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Reuse 1/i }));
+    expect(screen.getByText(/1 of 1 template shown by recommendation state/i)).toBeInTheDocument();
     await user.click(within(runDetails).getByRole('button', { name: 'Schema weekly audit: Supabase Setup Context' }));
     expect(screen.getByPlaceholderText('Search queue, files, or QA')).toHaveValue('Schema weekly audit: Supabase Setup Context');
     expect(screen.getByText(/Focused queue on run work item: Schema weekly audit: Supabase Setup Context/i)).toBeInTheDocument();
-    expect(screen.getByText(/0 new/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Record rerun check/i }));
+    expect(screen.getByText(/Recorded rerun check for Schema Audit Weekly/i)).toBeInTheDocument();
+    const runComparison = screen.getByRole('region', { name: /Batch template run comparison/i });
+    expect(within(runComparison).getByText('Run Comparison')).toBeInTheDocument();
+    expect(within(runComparison).getByText('0 (-1)')).toBeInTheDocument();
+    expect(within(runComparison).getByText('1 (+0)')).toBeInTheDocument();
+    expect(within(runComparison).getByText('Unscored (-4)')).toBeInTheDocument();
+    expect(screen.getAllByText('Score Latest Run').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Score the latest run to improve reuse guidance/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Score Latest Run 1/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/0 new/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it('creates and duplicates reusable batch templates', async () => {
@@ -556,12 +576,16 @@ describe('ProjectAnalyzer', () => {
     expect(screen.getByLabelText('Work item priority')).toBeInTheDocument();
     expect(screen.getByLabelText('Work item source')).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText('Title'), 'Build MCP tool schema audit');
-    await user.type(screen.getByLabelText('Summary'), 'Create work item for validating first MCP request and response schemas.');
-    await user.type(screen.getByLabelText('Next action'), 'List read-only tool schemas.');
+    await user.click(screen.getByLabelText('Title'));
+    await user.paste('Build MCP tool schema audit');
+    await user.click(screen.getByLabelText('Summary'));
+    await user.paste('Create work item for validating first MCP request and response schemas.');
+    await user.click(screen.getByLabelText('Next action'));
+    await user.paste('List read-only tool schemas.');
     await user.selectOptions(screen.getByLabelText('Type'), 'audit');
     await user.selectOptions(screen.getByLabelText('Feature'), 'briefs');
-    await user.type(screen.getByLabelText('Tags'), 'mcp-platform-mvp, schema-api-audit');
+    await user.click(screen.getByLabelText('Tags'));
+    await user.paste('mcp-platform-mvp, schema-api-audit');
     await user.click(screen.getByRole('button', { name: /Add work item/i }));
 
     const workCard = screen.getByRole('heading', { name: 'Build MCP tool schema audit' }).closest('article');

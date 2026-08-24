@@ -130,6 +130,14 @@ last-run metadata and recent run history back to the project map so repeatable
 work runs have lightweight execution evidence. Run details resolve generated
 work item IDs back to queue items, letting teams focus the queue from a specific
 template run, and each run can store outcome notes plus a reuse-quality score.
+Repeated runs can be compared against the prior run by created-work count,
+matching-source count, and score delta. Scored run history also produces
+template recommendation signals such as Run Template, Score Latest Run, Reuse,
+Watch, and Revise so recurring work patterns can improve without hardcoding a
+company process into the public Playground. The template workspace also rolls
+those signals up across saved templates with filters, so teams can quickly find
+templates that are ready to reuse, need scoring, need review, or should stay
+archived.
 The screen starts from a local JSON import or, when enabled for a private local
 workspace, auto-loads the local Project Analyzer database so private product
 maps can stay outside this public repository. File references can carry local

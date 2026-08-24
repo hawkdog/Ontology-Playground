@@ -40,7 +40,10 @@
 - [x] Add batch-template run history and last-run metadata.
 - [x] Add batch-template run detail drilldown with generated work item links.
 - [x] Add batch-template run notes and outcome scoring.
-- [ ] Add batch-template run comparison views for repeated operations.
+- [x] Add batch-template run comparison views for repeated operations.
+- [x] Add batch-template recommendation signals from scored run history.
+- [x] Add batch-template recommendation filters and rollup across templates.
+- [ ] Add batch-template rollup actions for scoring, archiving, and duplicating templates from signal groups.
 - [ ] Add automated roadmap-doc ingestion for feature and release visualization.
 - [ ] Add spreadsheet/roadmap import helpers that convert private QA trackers and roadmap markdown into project-analysis records.
 - [x] Add a QA testability/dependency report that classifies manual-only, AI-assisted, and automation-ready test items.
