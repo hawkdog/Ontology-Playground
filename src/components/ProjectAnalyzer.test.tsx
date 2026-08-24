@@ -334,9 +334,12 @@ describe('ProjectAnalyzer', () => {
     expect(screen.getAllByText('Brief Builder').length).toBeGreaterThanOrEqual(1);
     expect(fileNode).toHaveClass('active');
     expect(screen.getByText(/Focused on BriefWorkspace\.tsx/i)).toBeInTheDocument();
-
-    await user.click(screen.getByLabelText('Only selected network'));
+    expect(screen.getByText(/related item/i)).toBeInTheDocument();
     expect(screen.getByLabelText('Only selected network')).toBeChecked();
+
+    const sameLevelFileNode = screen.getByRole('button', { name: /brief-builder-smoke\.md/i });
+    expect(sameLevelFileNode).toHaveClass('active');
+    expect(screen.queryByRole('button', { name: /ReviewQueue\.tsx/i })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Clear focus/i }));
     expect(fileNode).not.toHaveClass('active');

@@ -98,8 +98,10 @@ capabilities, features, mapped files, dependencies, MVP disposition, and release
 timing. The default view is a layered interaction map that connects capabilities,
 features, components, files, QA items, and roadmap items so teams can inspect
 feature impact before slimming or rebuilding work. Selecting a map node focuses
-its immediate network, dims unrelated items, and can collapse the canvas to only
-the selected item's connected nodes. The project dashboards keep the persistent
+an expanded related network, including same-level items that share selected
+neighbors, and automatically regroups the canvas around that selected network
+so related capabilities, features, files, QA, and roadmap records are easier to
+inspect together. The project dashboards keep the persistent
 Playground header available for moving between Analyzer, QA, Roadmap, catalogue,
 and ontology tools. The Analyzer also includes an MVP Readiness tab that turns
 the same model into a ship-decision board with readiness percentage, QA gaps,

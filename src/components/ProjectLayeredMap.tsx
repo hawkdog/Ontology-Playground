@@ -388,10 +388,31 @@ function nodeSearchText(node: ProjectMapNode): string {
   return [node.label, node.subtitle, node.metric, node.path, node.refId, node.layer].filter(Boolean).join(' ').toLowerCase();
 }
 
+function selectedNetworkIds(focusedNode: ProjectMapNode | null, edges: ProjectMapEdge[]): Set<string> {
+  const selected = new Set<string>();
+  if (!focusedNode) return selected;
+
+  selected.add(focusedNode.id);
+  const directlyRelated = new Set<string>();
+  for (const edge of edges) {
+    if (edge.source === focusedNode.id) directlyRelated.add(edge.target);
+    if (edge.target === focusedNode.id) directlyRelated.add(edge.source);
+  }
+
+  for (const nodeId of directlyRelated) selected.add(nodeId);
+
+  for (const edge of edges) {
+    if (directlyRelated.has(edge.source)) selected.add(edge.target);
+    if (directlyRelated.has(edge.target)) selected.add(edge.source);
+  }
+
+  return selected;
+}
+
 export function ProjectLayeredMap({ model, features, selectedFeatureId, onSelectFeature }: ProjectLayeredMapProps) {
   const [visibleLayers, setVisibleLayers] = useState(defaultLayers);
   const [mapQuery, setMapQuery] = useState('');
-  const [showOnlyConnections, setShowOnlyConnections] = useState(false);
+  const [showOnlyConnections, setShowOnlyConnections] = useState(true);
   const graph = useMemo(() => buildLayeredMap(model, features), [features, model]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(selectedFeatureId ? `feature:${selectedFeatureId}` : null);
   const activeLayers = (Object.keys(layerLabels) as ProjectMapLayer[]).filter((layer) => visibleLayers[layer]);
@@ -401,23 +422,16 @@ export function ProjectLayeredMap({ model, features, selectedFeatureId, onSelect
   const focusedNode = layerVisibleNodes.find((node) => node.id === selectedNodeId) ?? null;
   const selectedNode = focusedNode ?? layerVisibleNodes.find((node) => node.layer === 'feature') ?? layerVisibleNodes[0];
   const selectedConnectionIds = useMemo(() => {
-    const connected = new Set<string>();
-    if (!focusedNode) return connected;
-    connected.add(focusedNode.id);
-    for (const edge of layerVisibleEdges) {
-      if (edge.source === focusedNode.id) connected.add(edge.target);
-      if (edge.target === focusedNode.id) connected.add(edge.source);
-    }
-    return connected;
+    return selectedNetworkIds(focusedNode, layerVisibleEdges);
   }, [focusedNode, layerVisibleEdges]);
   const selectedEdgeIds = useMemo(() => {
     const connected = new Set<string>();
     if (!focusedNode) return connected;
     for (const edge of layerVisibleEdges) {
-      if (edge.source === focusedNode.id || edge.target === focusedNode.id) connected.add(edge.id);
+      if (selectedConnectionIds.has(edge.source) && selectedConnectionIds.has(edge.target)) connected.add(edge.id);
     }
     return connected;
-  }, [focusedNode, layerVisibleEdges]);
+  }, [focusedNode, layerVisibleEdges, selectedConnectionIds]);
   const normalizedQuery = mapQuery.trim().toLowerCase();
   const searchMatchIds = useMemo(() => {
     if (!normalizedQuery) return new Set<string>();
@@ -431,6 +445,9 @@ export function ProjectLayeredMap({ model, features, selectedFeatureId, onSelect
 
   const layerNodes = new Map<ProjectMapLayer, ProjectMapNode[]>();
   for (const layer of activeLayers) layerNodes.set(layer, visibleNodes.filter((node) => node.layer === layer));
+  const layoutLayers = focusedNode && showOnlyConnections
+    ? activeLayers.filter((layer) => (layerNodes.get(layer)?.length ?? 0) > 0)
+    : activeLayers;
 
   const columnWidth = 220;
   const rowHeight = 86;
@@ -438,12 +455,12 @@ export function ProjectLayeredMap({ model, features, selectedFeatureId, onSelect
   const nodeHeight = 58;
   const leftPadding = 34;
   const topPadding = 72;
-  const graphWidth = Math.max(760, activeLayers.length * columnWidth + 60);
-  const maxLayerCount = Math.max(1, ...activeLayers.map((layer) => layerNodes.get(layer)?.length ?? 0));
+  const graphWidth = Math.max(760, Math.max(1, layoutLayers.length) * columnWidth + 60);
+  const maxLayerCount = Math.max(1, ...layoutLayers.map((layer) => layerNodes.get(layer)?.length ?? 0));
   const graphHeight = Math.max(520, topPadding + maxLayerCount * rowHeight + 56);
   const positions = new Map<string, { x: number; y: number }>();
 
-  activeLayers.forEach((layer, layerIndex) => {
+  layoutLayers.forEach((layer, layerIndex) => {
     (layerNodes.get(layer) ?? []).forEach((node, nodeIndex) => {
       positions.set(node.id, {
         x: leftPadding + layerIndex * columnWidth,
@@ -454,12 +471,14 @@ export function ProjectLayeredMap({ model, features, selectedFeatureId, onSelect
 
   const selectNode = (node: ProjectMapNode) => {
     setSelectedNodeId(node.id);
+    setShowOnlyConnections(true);
     if (node.kind === 'feature') onSelectFeature?.(node.refId);
   };
 
   useEffect(() => {
     if (selectedFeatureId) {
       setSelectedNodeId(`feature:${selectedFeatureId}`);
+      setShowOnlyConnections(true);
     }
   }, [selectedFeatureId]);
 
@@ -472,7 +491,7 @@ export function ProjectLayeredMap({ model, features, selectedFeatureId, onSelect
             <h2>Feature Interaction Map</h2>
             {focusedNode && (
               <p>
-                Focused on {focusedNode.label}. {Math.max(0, selectedConnectionIds.size - 1)} connected item{selectedConnectionIds.size === 2 ? '' : 's'}.
+                Focused on {focusedNode.label}. {Math.max(0, selectedConnectionIds.size - 1)} related item{selectedConnectionIds.size === 2 ? '' : 's'} selected and regrouped.
               </p>
             )}
           </div>
@@ -564,7 +583,7 @@ export function ProjectLayeredMap({ model, features, selectedFeatureId, onSelect
             })}
           </svg>
 
-          {activeLayers.map((layer, layerIndex) => (
+          {layoutLayers.map((layer, layerIndex) => (
             <div
               className="analysis-map-layer-label"
               key={layer}
@@ -579,13 +598,15 @@ export function ProjectLayeredMap({ model, features, selectedFeatureId, onSelect
             if (!position) return null;
             const Icon = nodeIcon(node.kind);
             const isConnected = selectedConnectionIds.has(node.id);
+            const isFocusRoot = focusedNode?.id === node.id;
             const isSearchMatch = searchMatchIds.has(node.id);
             const isDimmed = Boolean((focusedNode && !isConnected) || (normalizedQuery && !isSearchMatch));
             return (
               <button
                 key={node.id}
                 type="button"
-                className={`analysis-map-node ${focusedNode?.id === node.id ? 'active' : ''} ${isConnected ? 'connected' : ''} ${isSearchMatch ? 'search-match' : ''} ${isDimmed ? 'dimmed' : ''}`}
+                aria-pressed={isConnected}
+                className={`analysis-map-node ${isConnected ? 'active connected' : ''} ${isFocusRoot ? 'focus-root' : ''} ${isSearchMatch ? 'search-match' : ''} ${isDimmed ? 'dimmed' : ''}`}
                 style={{ left: position.x, top: position.y, width: nodeWidth, minHeight: nodeHeight, borderColor: node.tone }}
                 onClick={() => selectNode(node)}
                 title={node.path ?? node.label}

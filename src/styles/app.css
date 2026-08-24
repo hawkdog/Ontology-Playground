@@ -4420,6 +4420,10 @@ body {
   box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.26), 0 12px 32px rgba(0, 0, 0, 0.22);
 }
 
+.analysis-map-node.focus-root {
+  box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.38), 0 0 0 5px rgba(0, 120, 212, 0.12), 0 12px 32px rgba(0, 0, 0, 0.24);
+}
+
 .analysis-map-node.connected:not(.active) {
   box-shadow: 0 0 0 1px rgba(0, 120, 212, 0.18), 0 10px 28px rgba(0, 0, 0, 0.18);
 }

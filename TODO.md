@@ -12,6 +12,7 @@
 - [x] Add local import for private project-analysis JSON files.
 - [x] Add a layered feature interaction map for capabilities, features, files, QA, and roadmap items.
 - [x] Add selected-node focus, connected-node highlighting, and map search controls.
+- [x] Add selected-network regrouping with same-level related items on the layered map.
 - [x] Add an MVP Readiness dashboard for ship status, blockers, QA gaps, mapping gaps, and next actions.
 - [x] Add editable MVP decision, sign-off, cut-safety, owner, next-action, and progress-log fields.
 - [x] Add a Work Queue that orders blockers, testing, mapping, review, backlog, and scope decisions.
