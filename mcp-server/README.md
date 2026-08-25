@@ -129,6 +129,36 @@ npm run mcp:check
 npm run mcp:test
 ```
 
+## Local Smoke Client
+
+The repo includes a small MCP test client that behaves like an authenticated
+agent caller. It does not use an LLM. It validates health, auth rejection,
+`server/discover`, `tools/list`, every read-only tool, tenant/client metadata,
+and optional audit-log safety.
+It also checks that `server/discover` includes direct `serverInfo`, that
+unauthenticated `401` responses include `WWW-Authenticate` scope guidance, and
+that every exposed tool declares read-only, non-destructive, idempotent,
+closed-world annotations.
+
+Run against the default local container:
+
+```bash
+$env:MCP_TEST_TOKEN="mcp-smoke-token"
+$env:MCP_TEST_CLIENT_ID="smoke-agent"
+$env:MCP_TEST_AUDIT_LOG_PATH="mcp-server/audit/mcp-audit-smoke.jsonl"
+npm run mcp:smoke
+```
+
+Config:
+
+- `MCP_TEST_URL` - defaults to `http://127.0.0.1:3333/mcp`.
+- `MCP_TEST_HEALTH_URL` - defaults to `/health` beside `MCP_TEST_URL`.
+- `MCP_TEST_TOKEN` - bearer token used by the smoke client.
+- `MCP_TEST_CLIENT_ID` - client id sent as `Mcp-Client-Id`.
+- `MCP_TEST_AUDIT_LOG_PATH` - optional host audit log path to verify.
+- `MCP_TEST_EXPECT_AUTH_REJECTION` - set `false` when testing a loopback dev
+  server with auth bypass enabled.
+
 ## Security Notes
 
 - Tools are read-only and marked with `readOnlyHint`.

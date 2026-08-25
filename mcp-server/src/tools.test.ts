@@ -31,6 +31,9 @@ describe('project context MCP tools', () => {
       'project.roadmap_signals',
     ]);
     expect(projectContextTools.every((tool) => tool.annotations?.readOnlyHint === true)).toBe(true);
+    expect(projectContextTools.every((tool) => tool.annotations?.destructiveHint === false)).toBe(true);
+    expect(projectContextTools.every((tool) => tool.annotations?.idempotentHint === true)).toBe(true);
+    expect(projectContextTools.every((tool) => tool.annotations?.openWorldHint === false)).toBe(true);
   });
 
   it('returns a summary from the fictional sample context by default', async () => {
@@ -42,8 +45,8 @@ describe('project context MCP tools', () => {
     });
     expect(result.structuredContent.counts).toMatchObject({
       features: 5,
-      markdownDocuments: 1,
-      workItems: 1,
+      markdownDocuments: 2,
+      workItems: 2,
     });
   });
 

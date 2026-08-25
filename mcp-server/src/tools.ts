@@ -54,27 +54,34 @@ const contextFilterSchema = {
   },
 };
 
+const readOnlyClosedWorldAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+};
+
 export const projectContextTools: McpToolDefinition[] = [
   {
     name: 'project.summary',
     title: 'Project Summary',
     description: 'Return a read-only summary of the current Project Analyzer map and available context counts.',
     inputSchema: emptySchema,
-    annotations: { readOnlyHint: true },
+    annotations: readOnlyClosedWorldAnnotations,
   },
   {
     name: 'project.markdown_context_pack',
     title: 'Markdown Context Pack',
     description: 'Return filtered markdown project memory, required checks, and attached resources for agent work.',
     inputSchema: contextFilterSchema,
-    annotations: { readOnlyHint: true },
+    annotations: readOnlyClosedWorldAnnotations,
   },
   {
     name: 'project.resources.list',
     title: 'Resource Library Records',
     description: 'Return attached resource-library links from filtered markdown documents.',
     inputSchema: contextFilterSchema,
-    annotations: { readOnlyHint: true },
+    annotations: readOnlyClosedWorldAnnotations,
   },
   {
     name: 'project.work_queue.list',
@@ -92,7 +99,7 @@ export const projectContextTools: McpToolDefinition[] = [
         limit: { type: 'number', minimum: 1, maximum: 100 },
       },
     },
-    annotations: { readOnlyHint: true },
+    annotations: readOnlyClosedWorldAnnotations,
   },
   {
     name: 'project.qa_status',
@@ -108,7 +115,7 @@ export const projectContextTools: McpToolDefinition[] = [
         limit: { type: 'number', minimum: 1, maximum: 100 },
       },
     },
-    annotations: { readOnlyHint: true },
+    annotations: readOnlyClosedWorldAnnotations,
   },
   {
     name: 'project.roadmap_signals',
@@ -123,7 +130,7 @@ export const projectContextTools: McpToolDefinition[] = [
         limit: { type: 'number', minimum: 1, maximum: 100 },
       },
     },
-    annotations: { readOnlyHint: true },
+    annotations: readOnlyClosedWorldAnnotations,
   },
 ];
 

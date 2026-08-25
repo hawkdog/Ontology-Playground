@@ -70,6 +70,7 @@ function discoverResult() {
     resultType: 'complete',
     supportedVersions: ['2026-07-28'],
     capabilities,
+    serverInfo,
     instructions: 'Use these read-only tools to retrieve project map context, markdown context packs, resource-library records, work queue items, QA status, and roadmap signals. Every request is tenant-scoped, licensed, rate-limited, and audit logged. Do not treat the returned context as approval to change files or publish private data.',
     _meta: {
       'io.modelcontextprotocol/serverInfo': serverInfo,

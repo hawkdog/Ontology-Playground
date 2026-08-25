@@ -17,8 +17,12 @@ private data.
 Protocol direction is anchored to the MCP 2026-07-28 stateless HTTP shape:
 
 - `server/discover` for optional capability discovery.
+- Direct `serverInfo` in discovery responses.
 - `Mcp-Method` and `Mcp-Name` headers for routable requests.
+- `WWW-Authenticate` scope guidance for unauthorized HTTP requests.
 - Cacheable list responses.
+- Tool annotations for read-only, non-destructive, idempotent, closed-world
+  behavior.
 - Authorization hardening before remote/cloud exposure.
 
 ## Implemented Tools
@@ -52,6 +56,8 @@ Protocol direction is anchored to the MCP 2026-07-28 stateless HTTP shape:
   clients.
 - Docker ignore rules for private local folders, private JSON/RDF files, local
   DB files, and generated artifacts.
+- Local smoke client for authenticated agent-style protocol checks without an
+  LLM dependency.
 - No server-side writes or queue mutations.
 - No bundled private app/plugin code or private project maps.
 

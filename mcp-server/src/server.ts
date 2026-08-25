@@ -15,12 +15,21 @@ const maxBodyBytes = Number.parseInt(process.env.MCP_MAX_BODY_BYTES || '1048576'
 const mcpAccessConfig = await accessConfig();
 validateStartupSecurity(mcpAccessConfig, host);
 
-function sendJson(response: http.ServerResponse, status: number, body: unknown): void {
+function sendJson(response: http.ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
   response.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    ...headers,
   });
   response.end(JSON.stringify(body));
+}
+
+function authChallengeHeader(request: http.IncomingMessage): string {
+  const hostHeader = request.headers.host || `${host}:${port}`;
+  const baseUrl = `http://${hostHeader}`;
+  const resourceMetadata = process.env.MCP_AUTH_RESOURCE_METADATA_URL || `${baseUrl}/.well-known/oauth-protected-resource`;
+  const scope = 'project:read markdown:read resources:read work_queue:read qa:read roadmap:read';
+  return `Bearer resource_metadata="${resourceMetadata}", scope="${scope}"`;
 }
 
 function readBody(request: http.IncomingMessage): Promise<string> {
@@ -115,6 +124,8 @@ const server = http.createServer(async (request, response) => {
           code: -32001,
           message: error instanceof Error ? error.message : 'Authentication failed.',
         },
+      }, {
+        'WWW-Authenticate': authChallengeHeader(request),
       });
       return;
     }

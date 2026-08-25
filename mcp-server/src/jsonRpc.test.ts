@@ -42,6 +42,23 @@ describe('MCP JSON-RPC guardrails', () => {
     expect(JSON.stringify(response)).not.toContain('project.qa_status');
   });
 
+  it('returns direct serverInfo in server discovery', async () => {
+    const response = await handleJsonRpc({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'server/discover',
+    }, access(), config);
+
+    expect(response).toMatchObject({
+      result: {
+        resultType: 'complete',
+        serverInfo: {
+          name: 'ontology-playground-project-context',
+        },
+      },
+    });
+  });
+
   it('denies tool calls outside the current license and scope', async () => {
     const response = await handleJsonRpc({
       jsonrpc: '2.0',
