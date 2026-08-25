@@ -7003,6 +7003,129 @@ body {
   line-height: 1.3;
 }
 
+.analysis-mcp-clients {
+  display: grid;
+  gap: 12px;
+}
+
+.analysis-mcp-overview {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.75fr);
+  align-items: start;
+}
+
+.analysis-mcp-client-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 390px);
+  gap: 14px;
+  align-items: start;
+}
+
+.analysis-mcp-client-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 12px;
+}
+
+.analysis-mcp-client-card {
+  min-width: 0;
+}
+
+.analysis-mcp-client-meta,
+.analysis-mcp-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.analysis-mcp-client-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 7px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.analysis-mcp-readiness-meter {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0;
+}
+
+.analysis-mcp-readiness-meter div {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.analysis-mcp-readiness-meter dt {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.analysis-mcp-readiness-meter dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.analysis-mcp-client-composer {
+  position: sticky;
+  top: 74px;
+}
+
+.analysis-mcp-toggle,
+.analysis-mcp-scope-fieldset label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.analysis-mcp-toggle input,
+.analysis-mcp-scope-fieldset input {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.analysis-mcp-scope-fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.analysis-mcp-scope-fieldset legend {
+  padding: 0 4px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.analysis-mcp-secret-note {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .analysis-current-pill {
   display: inline-flex;
   align-items: center;
@@ -7449,6 +7572,8 @@ body {
   .analysis-roadmap-layout,
   .analysis-qa-layout,
   .analysis-map-layout,
+  .analysis-mcp-client-grid,
+  .analysis-mcp-overview,
   .analysis-readiness-layout,
   .analysis-execution-layout,
   .analysis-testability-layout {

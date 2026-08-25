@@ -19,6 +19,7 @@ export { OntologyDesigner } from './OntologyDesigner';
 export { LearnPage } from './LearnPage';
 export { ProjectAnalyzer } from './ProjectAnalyzer';
 export { ProjectLayeredMap } from './ProjectLayeredMap';
+export { ProjectMCPClientProfiles } from './ProjectMCPClientProfiles';
 export { ProjectMVPExecutionQueue } from './ProjectMVPExecutionQueue';
 export { ProjectMVPReadinessDashboard } from './ProjectMVPReadinessDashboard';
 export { ProjectQADashboard } from './ProjectQADashboard';

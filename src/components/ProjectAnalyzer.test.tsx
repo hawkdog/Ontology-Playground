@@ -118,6 +118,32 @@ const privateFeatureFileMap = {
       outcome: 'Schema/API docs are converted into executable audit work.',
     },
   ],
+  mcpClientProfiles: [
+    {
+      id: 'mcp-client-first-agent',
+      displayName: 'First Agent Candidate',
+      clientId: 'first-agent',
+      tenantId: 'tenant-private-map',
+      companyName: 'Private Client',
+      owner: 'Platform',
+      agentHost: 'Desktop agent',
+      endpoint: 'http://127.0.0.1:3333/mcp',
+      status: 'ready',
+      licensePlan: 'mcp-pro',
+      scopes: ['project:read', 'markdown:read', 'resources:read', 'qa:read'],
+      allowedPrivateContext: false,
+      rateLimitPerMinute: 30,
+      tokenPosture: 'external-secret',
+      tokenReference: 'Local secret manager',
+      smokeStatus: 'not-run',
+      readinessChecks: ['Run npm run mcp:smoke with the real client policy.'],
+      risks: ['Do not reuse smoke credentials.'],
+      repositoryIds: ['app'],
+      markdownDocumentIds: ['doc-supabase-setup'],
+      qaItemIds: ['qa-brief-create'],
+      createdAt: '2026-08-24',
+    },
+  ],
   features: [
     {
       id: 'briefs',
@@ -638,6 +664,63 @@ describe('ProjectAnalyzer', () => {
 
     await user.click(within(workCard as HTMLElement).getByRole('button', { name: 'Start work' }));
     expect(within(workCard as HTMLElement).getByText('In progress')).toBeInTheDocument();
+  });
+
+  it('manages MCP client profiles and queues readiness work', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.upload(
+      screen.getByLabelText('Import project-analysis JSON'),
+      new File([JSON.stringify(privateFeatureFileMap)], 'private-map.json', { type: 'application/json' }),
+    );
+    await screen.findByRole('heading', { name: 'Private Map' });
+    await user.click(screen.getByRole('tab', { name: /MCP Clients/i }));
+
+    expect(screen.getByRole('main', { name: 'MCP client profiles' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'MCP client readiness summary' })).toBeInTheDocument();
+    expect(screen.getByText('First Agent Candidate')).toBeInTheDocument();
+    expect(screen.getAllByText('External secret').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('project.qa_status')).toBeInTheDocument();
+    expect(screen.getByText('Do not reuse smoke credentials.')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('MCP client plan'), 'mcp-pro');
+    expect(screen.getByText('First Agent Candidate')).toBeInTheDocument();
+
+    const profileCard = screen.getByRole('heading', { name: 'First Agent Candidate' }).closest('article');
+    expect(profileCard).not.toBeNull();
+    await user.click(within(profileCard as HTMLElement).getByRole('button', { name: /Queue Smoke/i }));
+
+    expect(screen.getByRole('heading', { name: 'Work Queue' })).toBeInTheDocument();
+    expect(screen.getByText('Smoke test MCP client: First Agent Candidate')).toBeInTheDocument();
+  });
+
+  it('creates MCP client profiles without storing plaintext tokens', async () => {
+    const user = userEvent.setup();
+    render(<ProjectAnalyzer />);
+
+    await user.upload(
+      screen.getByLabelText('Import project-analysis JSON'),
+      new File([JSON.stringify(privateFeatureFileMap)], 'private-map.json', { type: 'application/json' }),
+    );
+    await screen.findByRole('heading', { name: 'Private Map' });
+    await user.click(screen.getByRole('tab', { name: /MCP Clients/i }));
+
+    const composer = screen.getByText('Add Client Profile').closest('aside');
+    expect(composer).not.toBeNull();
+    const panel = composer as HTMLElement;
+
+    await user.type(within(panel).getByLabelText('Profile name'), 'Claude Desktop Candidate');
+    await user.type(within(panel).getByLabelText('Client id'), 'claude-desktop');
+    await user.type(within(panel).getByLabelText('Tenant id'), 'tenant-claude');
+    await user.type(within(panel).getByLabelText('Company'), 'Demo Company');
+    await user.selectOptions(within(panel).getByLabelText('Token posture'), 'token-hash');
+    await user.type(within(panel).getByLabelText('Token reference'), 'MCP_CLIENTS_JSON tokenHash');
+    await user.click(within(panel).getByRole('button', { name: /Add profile/i }));
+
+    expect(screen.getByText('Claude Desktop Candidate')).toBeInTheDocument();
+    expect(screen.getAllByText('Token hash').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Plaintext bearer tokens stay outside the map/i)).toBeInTheDocument();
   });
 
   it('queues work from markdown documents and QA items', async () => {

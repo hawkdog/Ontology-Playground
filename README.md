@@ -156,6 +156,13 @@ agents before work begins. Document filters can narrow the list by type,
 feature, alignment target, or context tag such as MCP platform MVP, schema/API
 audit, security baseline, RLS, Supabase, UI design, and WordPress/plugin
 integration.
+The MCP Clients tab manages read-only agent access profiles before real agents
+connect. Profiles track client id, tenant id, company/host, license plan,
+least-privilege scopes, token posture, private-context posture, rate limits,
+smoke-test status, audit-log path, allowed tools, readiness checks, risk notes,
+and queue actions for smoke, integration, and security follow-up. The map stores
+only policy metadata and token hash/external-secret references, not plaintext
+bearer tokens.
 Local deployments can also connect to a private Project Analyzer API for Load DB
 / Save DB workflows. The included sample is fictional, can be hidden with an
 environment flag, and exists only to demonstrate the workflow.
@@ -249,7 +256,7 @@ Client-side hash routing with shareable URLs for every page:
 | `/#/catalogue/<source>/<slug>` | Specific ontology (e.g. `/#/catalogue/official/cosmic-coffee`) |
 | `/#/designer` | Visual designer |
 | `/#/designer/<source>/<slug>` | Designer with catalogue ontology (e.g. `/#/designer/official/cosmic-coffee`) |
-| `/#/analysis` | Project Analyzer |
+| `/#/analysis` | Project Analyzer, including MD Docs, Work Queue, and MCP Clients tabs |
 | `/#/qa` | QA Dashboard |
 | `/#/roadmap` | Roadmap Dashboard |
 | `/#/learn` | Ontology School — course catalogue |

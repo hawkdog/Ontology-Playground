@@ -58,6 +58,10 @@ Protocol direction is anchored to the MCP 2026-07-28 stateless HTTP shape:
   DB files, and generated artifacts.
 - Local smoke client for authenticated agent-style protocol checks without an
   LLM dependency.
+- Playground MCP Client Profiles for tenant/client metadata, license plan,
+  allowed scopes, token posture, private-context posture, smoke status,
+  audit-log path, readiness checks, and queue follow-up before external agent
+  access.
 - No server-side writes or queue mutations.
 - No bundled private app/plugin code or private project maps.
 
@@ -69,5 +73,6 @@ Protocol direction is anchored to the MCP 2026-07-28 stateless HTTP shape:
 - Connect license plans to real billing and entitlement records.
 - Add response-size budgets per tenant/client/tool.
 - Add a client connector guide for local agents and hosted agents.
-- Add a UI connection panel showing which tools are exposed.
+- Wire MCP Client Profiles to generated local client-policy files or a hosted
+  tenant admin API.
 - Add cloud deployment shape after the local Docker path is stable.

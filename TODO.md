@@ -50,6 +50,7 @@
 - [x] Add MCP read-only tools for project map, markdown context packs, resource-library records, work queue, QA status, and roadmap signals.
 - [x] Add MCP auth, tenant scoping, licensing checks, audit logging, and rate limits before cloud exposure.
 - [x] Add a local MCP smoke client for authenticated agent-style protocol testing.
+- [x] Add MCP Client Profiles in the Playground for scoped client policy, smoke status, token posture, and queue follow-up.
 - [ ] Replace local MCP bearer policy with hosted OAuth/JWT validation, persistent audit logs, distributed rate limits, and billing-backed entitlements.
 - [ ] Add a UI polish/design-system pass that centralizes tokens and reusable components before a full redesign.
 - [ ] Update the GitHub fork description and merge the feature branch to main after this layer and current checks are clean.

@@ -21,6 +21,10 @@ export type ProjectWorkItemPriority = 'low' | 'medium' | 'high' | 'critical';
 export type ProjectQueueViewStage = 'blocked' | 'qa' | 'mapping' | 'signoff' | 'ready' | 'slimming' | 'backlog';
 export type ProjectQueueViewType = ProjectWorkItemType | 'feature-derived';
 export type ProjectBatchTemplateSource = 'markdown-documents' | 'qa-items' | 'roadmap-items' | 'roadmap-sources' | 'features';
+export type MCPClientProfileStatus = 'draft' | 'ready' | 'active' | 'paused' | 'blocked' | 'retired';
+export type MCPClientLicensePlan = 'mcp-basic' | 'mcp-pro' | 'mcp-platform' | 'internal';
+export type MCPClientTokenPosture = 'token-hash' | 'external-secret' | 'not-configured';
+export type MCPClientSmokeStatus = 'not-run' | 'passed' | 'failed' | 'blocked' | 'needs-review';
 export type MVPDecision = 'keep' | 'simplify' | 'defer' | 'cut' | 'needs-review';
 export type MVPSignoffStatus = 'not-started' | 'in-review' | 'approved' | 'rejected';
 export type MVPCutSafety = 'safe-to-cut' | 'do-not-cut-yet' | 'needs-review';
@@ -309,6 +313,37 @@ export interface ProjectBatchTemplate {
   updatedAt?: string;
 }
 
+export interface MCPClientProfile {
+  id: string;
+  displayName: string;
+  clientId: string;
+  tenantId: string;
+  companyName?: string;
+  owner?: string;
+  agentHost?: string;
+  endpoint?: string;
+  status: MCPClientProfileStatus;
+  licensePlan: MCPClientLicensePlan;
+  scopes: string[];
+  allowedPrivateContext?: boolean;
+  rateLimitPerMinute?: number;
+  tokenPosture: MCPClientTokenPosture;
+  tokenReference?: string;
+  smokeStatus: MCPClientSmokeStatus;
+  lastSmokeTestAt?: string;
+  lastAuditLogPath?: string;
+  toolAccess?: string[];
+  readinessChecks?: string[];
+  risks?: string[];
+  notes?: string[];
+  repositoryIds?: string[];
+  markdownDocumentIds?: string[];
+  qaItemIds?: string[];
+  workItemIds?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface CodeComponentReference {
   id: string;
   name: string;
@@ -387,6 +422,7 @@ export interface ProjectAnalysisModel {
   workItems?: ProjectWorkItem[];
   queueViews?: ProjectQueueView[];
   batchTemplates?: ProjectBatchTemplate[];
+  mcpClientProfiles?: MCPClientProfile[];
   doNotCutBeforeChecks?: string[];
   openQuestions?: string[];
   firstSlimmingCandidates?: { featureId: string; suggestedAction: string; why: string }[];
@@ -608,6 +644,53 @@ export const projectBatchTemplateSourceLabels: Record<ProjectBatchTemplateSource
   'roadmap-items': 'Roadmap Items',
   'roadmap-sources': 'Roadmap Sources',
   features: 'Features',
+};
+
+export const mcpClientProfileStatusLabels: Record<MCPClientProfileStatus, string> = {
+  draft: 'Draft',
+  ready: 'Ready',
+  active: 'Active',
+  paused: 'Paused',
+  blocked: 'Blocked',
+  retired: 'Retired',
+};
+
+export const mcpClientProfileStatusColors: Record<MCPClientProfileStatus, string> = {
+  draft: '#605E5C',
+  ready: '#008272',
+  active: '#107C10',
+  paused: '#C19C00',
+  blocked: '#D13438',
+  retired: '#8764B8',
+};
+
+export const mcpClientLicensePlanLabels: Record<MCPClientLicensePlan, string> = {
+  'mcp-basic': 'MCP Basic',
+  'mcp-pro': 'MCP Pro',
+  'mcp-platform': 'MCP Platform',
+  internal: 'Internal',
+};
+
+export const mcpClientTokenPostureLabels: Record<MCPClientTokenPosture, string> = {
+  'token-hash': 'Token hash',
+  'external-secret': 'External secret',
+  'not-configured': 'Not configured',
+};
+
+export const mcpClientSmokeStatusLabels: Record<MCPClientSmokeStatus, string> = {
+  'not-run': 'Not run',
+  passed: 'Passed',
+  failed: 'Failed',
+  blocked: 'Blocked',
+  'needs-review': 'Needs review',
+};
+
+export const mcpClientSmokeStatusColors: Record<MCPClientSmokeStatus, string> = {
+  'not-run': '#605E5C',
+  passed: '#107C10',
+  failed: '#D13438',
+  blocked: '#D83B01',
+  'needs-review': '#C19C00',
 };
 
 export const mvpDecisionLabels: Record<MVPDecision, string> = {
@@ -847,6 +930,42 @@ function normalizeProjectBatchTemplateSource(value: unknown): ProjectBatchTempla
   if (raw === 'feature' || raw === 'features') return 'features';
   if (raw in projectBatchTemplateSourceLabels) return raw as ProjectBatchTemplateSource;
   return 'markdown-documents';
+}
+
+function normalizeMCPClientProfileStatus(value: unknown): MCPClientProfileStatus {
+  const raw = stringValue(value, 'draft').trim().toLowerCase();
+  if (raw === 'enabled' || raw === 'live') return 'active';
+  if (raw === 'disabled' || raw === 'inactive') return 'paused';
+  if (raw === 'archived') return 'retired';
+  if (raw === 'needs-review') return 'blocked';
+  if (raw in mcpClientProfileStatusLabels) return raw as MCPClientProfileStatus;
+  return 'draft';
+}
+
+function normalizeMCPClientLicensePlan(value: unknown): MCPClientLicensePlan {
+  const raw = stringValue(value, 'mcp-basic').trim().toLowerCase();
+  if (raw === 'basic') return 'mcp-basic';
+  if (raw === 'pro') return 'mcp-pro';
+  if (raw === 'platform') return 'mcp-platform';
+  if (['mcp-basic', 'mcp-pro', 'mcp-platform', 'internal'].includes(raw)) return raw as MCPClientLicensePlan;
+  return 'mcp-basic';
+}
+
+function normalizeMCPClientTokenPosture(value: unknown): MCPClientTokenPosture {
+  const raw = stringValue(value, 'not-configured').trim().toLowerCase();
+  if (raw === 'hash' || raw === 'hashed' || raw === 'tokenhash' || raw === 'token-hashed') return 'token-hash';
+  if (raw === 'secret' || raw === 'vault' || raw === 'external') return 'external-secret';
+  if (['token-hash', 'external-secret', 'not-configured'].includes(raw)) return raw as MCPClientTokenPosture;
+  return 'not-configured';
+}
+
+function normalizeMCPClientSmokeStatus(value: unknown): MCPClientSmokeStatus {
+  const raw = stringValue(value, 'not-run').trim().toLowerCase();
+  if (raw === 'pass' || raw === 'ok') return 'passed';
+  if (raw === 'fail') return 'failed';
+  if (raw === 'todo' || raw === 'pending') return 'not-run';
+  if (['not-run', 'passed', 'failed', 'blocked', 'needs-review'].includes(raw)) return raw as MCPClientSmokeStatus;
+  return 'not-run';
 }
 
 function normalizeRoadmapStatus(value: unknown): RoadmapSignalStatus {
@@ -1142,6 +1261,46 @@ function mapProjectBatchTemplates(value: unknown): ProjectBatchTemplate[] {
       updatedAt: stringValue(template.updatedAt),
     };
   }).filter((template) => template.name && template.summary);
+}
+
+function mapMCPClientProfiles(value: unknown): MCPClientProfile[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((profile, index) => {
+    const clientId = stringValue(profile.clientId, stringValue(profile.id, `mcp-client-${index + 1}`));
+    const displayName = stringValue(profile.displayName, stringValue(profile.name, clientId));
+    const tenantId = stringValue(profile.tenantId, stringValue(profile.tenant, stringValue(profile.companyId)));
+    const tokenPosture = normalizeMCPClientTokenPosture(profile.tokenPosture ?? profile.secretPosture ?? profile.tokenStorage);
+    return {
+      id: stringValue(profile.id, `mcp-client-profile-${index + 1}`),
+      displayName,
+      clientId,
+      tenantId,
+      companyName: stringValue(profile.companyName, stringValue(profile.company)),
+      owner: stringValue(profile.owner),
+      agentHost: stringValue(profile.agentHost, stringValue(profile.host)),
+      endpoint: stringValue(profile.endpoint, stringValue(profile.url)),
+      status: normalizeMCPClientProfileStatus(profile.status),
+      licensePlan: normalizeMCPClientLicensePlan(profile.licensePlan ?? profile.plan),
+      scopes: stringArray(profile.scopes),
+      allowedPrivateContext: booleanValue(profile.allowedPrivateContext ?? profile.privateContext),
+      rateLimitPerMinute: numberValue(profile.rateLimitPerMinute, 0) || undefined,
+      tokenPosture,
+      tokenReference: stringValue(profile.tokenReference, stringValue(profile.secretRef, tokenPosture === 'token-hash' ? 'MCP_CLIENTS_JSON tokenHash' : '')),
+      smokeStatus: normalizeMCPClientSmokeStatus(profile.smokeStatus ?? profile.lastSmokeStatus),
+      lastSmokeTestAt: stringValue(profile.lastSmokeTestAt, stringValue(profile.smokeTestedAt)),
+      lastAuditLogPath: stringValue(profile.lastAuditLogPath, stringValue(profile.auditLogPath)),
+      toolAccess: stringArray(profile.toolAccess ?? profile.tools),
+      readinessChecks: stringArray(profile.readinessChecks ?? profile.checks ?? profile.gates),
+      risks: stringArray(profile.risks),
+      notes: stringArray(profile.notes),
+      repositoryIds: stringArray(profile.repositoryIds ?? profile.repositories),
+      markdownDocumentIds: stringArray(profile.markdownDocumentIds ?? profile.documentIds ?? profile.docs),
+      qaItemIds: stringArray(profile.qaItemIds ?? profile.qaIds),
+      workItemIds: stringArray(profile.workItemIds ?? profile.workIds),
+      createdAt: stringValue(profile.createdAt, stringValue(profile.date)),
+      updatedAt: stringValue(profile.updatedAt),
+    };
+  }).filter((profile) => profile.displayName && profile.clientId && profile.tenantId);
 }
 
 function mapQANotes(value: unknown): QANote[] {
@@ -1459,6 +1618,7 @@ export function projectAnalysisFromJson(value: unknown, sourceLabel = 'Imported 
       workItems: mapProjectWorkItems(value.workItems ?? value.executionItems ?? value.tasks),
       queueViews: mapProjectQueueViews(value.queueViews ?? value.executionViews ?? value.savedQueueViews),
       batchTemplates: mapProjectBatchTemplates(value.batchTemplates ?? value.workRunTemplates ?? value.executionTemplates),
+      mcpClientProfiles: mapMCPClientProfiles(value.mcpClientProfiles ?? value.mcpClients ?? value.clientProfiles ?? value.agentClients),
       doNotCutBeforeChecks: stringArray(value.doNotCutBeforeChecks),
       openQuestions: stringArray(value.openQuestionsForReview),
       firstSlimmingCandidates: mapSlimmingCandidates(value.firstSlimmingCandidates),
@@ -1479,6 +1639,7 @@ export function projectAnalysisFromJson(value: unknown, sourceLabel = 'Imported 
       workItems: mapProjectWorkItems(value.workItems ?? value.executionItems ?? value.tasks ?? maybeModel.workItems),
       queueViews: mapProjectQueueViews(value.queueViews ?? value.executionViews ?? value.savedQueueViews ?? maybeModel.queueViews),
       batchTemplates: mapProjectBatchTemplates(value.batchTemplates ?? value.workRunTemplates ?? value.executionTemplates ?? maybeModel.batchTemplates),
+      mcpClientProfiles: mapMCPClientProfiles(value.mcpClientProfiles ?? value.mcpClients ?? value.clientProfiles ?? value.agentClients ?? maybeModel.mcpClientProfiles),
     } as ProjectAnalysisModel;
   }
 
@@ -1864,6 +2025,90 @@ export const sampleProjectAnalysis: ProjectAnalysisModel = {
       cadence: 'Before release checks',
       outcome: 'Setup assumptions are reviewed before launch decisions.',
       createdAt: '2026-08-20',
+    },
+  ],
+  mcpClientProfiles: [
+    {
+      id: 'mcp-client-smoke-agent',
+      displayName: 'Local Smoke Agent',
+      clientId: 'smoke-agent',
+      tenantId: 'tenant-smoke',
+      companyName: 'Local validation workspace',
+      owner: 'Platform',
+      agentHost: 'Local smoke client',
+      endpoint: 'http://127.0.0.1:3333/mcp',
+      status: 'active',
+      licensePlan: 'mcp-platform',
+      scopes: ['project:read', 'markdown:read', 'resources:read', 'work_queue:read', 'qa:read', 'roadmap:read'],
+      allowedPrivateContext: false,
+      rateLimitPerMinute: 60,
+      tokenPosture: 'token-hash',
+      tokenReference: 'MCP_CLIENTS_JSON tokenHash',
+      smokeStatus: 'passed',
+      lastSmokeTestAt: '2026-08-24',
+      lastAuditLogPath: 'mcp-server/audit/mcp-audit-smoke.jsonl',
+      toolAccess: [
+        'project.summary',
+        'project.markdown_context_pack',
+        'project.resources.list',
+        'project.work_queue.list',
+        'project.qa_status',
+        'project.roadmap_signals',
+      ],
+      readinessChecks: [
+        'Auth rejection includes WWW-Authenticate scope guidance.',
+        'server/discover returns direct serverInfo.',
+        'tools/list returns read-only, non-destructive, idempotent, closed-world annotations.',
+        'Audit log records metadata without bearer tokens or tool results.',
+      ],
+      risks: ['Replace smoke-only credentials before connecting a real agent.'],
+      notes: ['Use this profile as the baseline for local container validation.'],
+      repositoryIds: ['playground'],
+      markdownDocumentIds: ['doc-mcp-smoke-client'],
+      qaItemIds: ['qa-mcp-container-smoke'],
+      workItemIds: ['work-mcp-agent-integration'],
+      createdAt: '2026-08-24',
+    },
+    {
+      id: 'mcp-client-first-agent',
+      displayName: 'First External Agent Candidate',
+      clientId: 'first-agent-candidate',
+      tenantId: 'tenant-first-client',
+      companyName: 'Example company profile',
+      owner: 'Platform',
+      agentHost: 'MCP-capable desktop or hosted agent',
+      endpoint: 'http://127.0.0.1:3333/mcp',
+      status: 'ready',
+      licensePlan: 'mcp-pro',
+      scopes: ['project:read', 'markdown:read', 'resources:read', 'work_queue:read', 'qa:read'],
+      allowedPrivateContext: false,
+      rateLimitPerMinute: 30,
+      tokenPosture: 'external-secret',
+      tokenReference: 'Local secret manager or uncommitted environment file',
+      smokeStatus: 'not-run',
+      toolAccess: [
+        'project.summary',
+        'project.markdown_context_pack',
+        'project.resources.list',
+        'project.work_queue.list',
+        'project.qa_status',
+      ],
+      readinessChecks: [
+        'Create a real client policy with tokenHash only.',
+        'Run npm run mcp:smoke with the candidate client id and token.',
+        'Confirm the agent only sees tools allowed by plan and scopes.',
+        'Record connection evidence before broad team access.',
+      ],
+      risks: [
+        'Do not enable private context until tenant isolation is verified.',
+        'Do not reuse the smoke token for external clients.',
+      ],
+      notes: ['Use this as the first real integration work lane after local smoke stays green.'],
+      repositoryIds: ['playground'],
+      markdownDocumentIds: ['doc-mcp-smoke-client'],
+      qaItemIds: ['qa-mcp-container-smoke'],
+      workItemIds: ['work-mcp-agent-integration'],
+      createdAt: '2026-08-24',
     },
   ],
   qaItems: [

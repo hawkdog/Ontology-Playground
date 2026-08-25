@@ -12,6 +12,7 @@ import {
   Gauge,
   GitBranch,
   Image,
+  KeyRound,
   Layers3,
   ListChecks,
   ListFilter,
@@ -50,6 +51,7 @@ import {
   type MarkdownResourceType,
   type MarkdownDocumentSensitivity,
   type MarkdownDocumentStatus,
+  type MCPClientProfile,
   type ProductFeature,
   type ProjectBatchTemplate,
   type ProjectAnalysisModel,
@@ -68,10 +70,11 @@ import { navigate } from '../lib/router';
 import { loadProjectAnalysisFromApi, saveProjectAnalysisToApi } from '../lib/projectAnalysisApi';
 import { projectAnalysisAutoLoadEnabled, projectAnalysisSamplesEnabled } from '../lib/projectAnalysisSettings';
 import { ProjectLayeredMap } from './ProjectLayeredMap';
+import { ProjectMCPClientProfiles } from './ProjectMCPClientProfiles';
 import { ProjectMVPExecutionQueue } from './ProjectMVPExecutionQueue';
 import { ProjectMVPReadinessDashboard } from './ProjectMVPReadinessDashboard';
 
-type AnalyzerView = 'map' | 'readiness' | 'execution' | 'features' | 'files' | 'documents' | 'qa' | 'dependencies' | 'roadmap';
+type AnalyzerView = 'map' | 'readiness' | 'execution' | 'features' | 'files' | 'documents' | 'mcp-clients' | 'qa' | 'dependencies' | 'roadmap';
 
 interface ProjectAnalyzerProps {
   model?: ProjectAnalysisModel;
@@ -131,6 +134,7 @@ function emptyModelCopy(model: ProjectAnalysisModel): ProjectAnalysisModel {
     workItems: [...(model.workItems ?? [])],
     queueViews: [...(model.queueViews ?? [])],
     batchTemplates: [...(model.batchTemplates ?? [])],
+    mcpClientProfiles: [...(model.mcpClientProfiles ?? [])],
   };
 }
 
@@ -664,6 +668,29 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
     });
   };
 
+  const addMCPClientProfile = (profile: MCPClientProfile) => {
+    setActiveModel((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        mcpClientProfiles: [profile, ...(current.mcpClientProfiles ?? [])],
+      };
+    });
+    setApiMessage(`Added MCP client profile: ${profile.displayName}`);
+  };
+
+  const updateMCPClientProfile = (profileId: string, updates: Partial<MCPClientProfile>) => {
+    setActiveModel((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        mcpClientProfiles: (current.mcpClientProfiles ?? []).map((profile) => (
+          profile.id === profileId ? { ...profile, ...updates } : profile
+        )),
+      };
+    });
+  };
+
   const enqueueWorkItem = (item: ProjectWorkItem) => {
     if (!workingModel) return;
     const existing = (workingModel.workItems ?? []).find((candidate) => (
@@ -748,6 +775,57 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
       qaItemIds: [item.id],
       sourcePath: item.sourceDoc || item.fileRefs?.[0],
       tags: ['from-qa', item.status, item.type],
+    });
+  };
+
+  const enqueueMCPClientWork = (profile: MCPClientProfile, kind: 'integration' | 'security' | 'smoke') => {
+    const workConfig = {
+      integration: {
+        title: `Connect MCP client: ${profile.displayName}`,
+        summary: `Connect ${profile.agentHost || profile.clientId} to ${profile.endpoint || 'the local MCP endpoint'} and confirm it can discover only the allowed tools.`,
+        type: 'integration' as ProjectWorkItemType,
+        priority: 'high' as ProjectWorkItemPriority,
+        nextAction: 'Run discovery, tools/list, and one allowed read-only tool call with the real client policy.',
+        tags: ['mcp-platform-mvp', 'agent-integration', profile.licensePlan],
+      },
+      security: {
+        title: `Security review MCP client: ${profile.displayName}`,
+        summary: `Review scopes, token posture, private-context setting, rate limit, and audit-log path before wider access.`,
+        type: 'security' as ProjectWorkItemType,
+        priority: profile.allowedPrivateContext || profile.tokenPosture === 'not-configured' ? 'critical' as ProjectWorkItemPriority : 'high' as ProjectWorkItemPriority,
+        nextAction: 'Confirm tokenHash or external secret storage, least-privilege scopes, and no plaintext token in the map.',
+        tags: ['mcp-platform-mvp', 'security', 'client-profile'],
+      },
+      smoke: {
+        title: `Smoke test MCP client: ${profile.displayName}`,
+        summary: `Run the local MCP smoke client using ${profile.clientId} and record discovery, tool annotation, tool-call, and audit-log evidence.`,
+        type: 'qa' as ProjectWorkItemType,
+        priority: profile.smokeStatus === 'passed' ? 'medium' as ProjectWorkItemPriority : 'high' as ProjectWorkItemPriority,
+        nextAction: 'Set MCP_TEST_CLIENT_ID and the matching token, run npm run mcp:smoke, then update this profile smoke status.',
+        tags: ['mcp-platform-mvp', 'smoke-test', 'qa'],
+      },
+    }[kind];
+
+    const item = baseWorkItem(
+      workConfig.title,
+      workConfig.summary,
+      workConfig.type,
+      workConfig.priority,
+      'MCP client profile',
+      `${profile.id}:${kind}`,
+    );
+    enqueueWorkItem({
+      ...item,
+      nextAction: workConfig.nextAction,
+      repositoryIds: profile.repositoryIds ?? ['playground'],
+      markdownDocumentIds: profile.markdownDocumentIds ?? [],
+      qaItemIds: profile.qaItemIds ?? [],
+      tags: workConfig.tags,
+      acceptanceCriteria: [
+        'Client policy uses tokenHash or an external secret reference.',
+        'Client can only call tools allowed by its license plan and scopes.',
+        'Audit log contains tenant/client/tool metadata without tokens or tool results.',
+      ],
     });
   };
 
@@ -886,6 +964,11 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
             <span>MD Docs</span>
           </div>
           <div className="analysis-summary-card">
+            <KeyRound size={18} />
+            <strong>{workingModel.mcpClientProfiles?.length ?? 0}</strong>
+            <span>MCP Clients</span>
+          </div>
+          <div className="analysis-summary-card">
             <AlertTriangle size={18} />
             <strong>{workingModel.doNotCutBeforeChecks?.length ?? 0}</strong>
             <span>Do not cut</span>
@@ -905,7 +988,7 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
 
       <section className="analysis-toolbar" aria-label="Project analysis filters">
         <div className="analysis-tabs" role="tablist" aria-label="Analysis views">
-          {(['map', 'readiness', 'execution', 'features', 'files', 'documents', 'dependencies', 'roadmap', 'qa'] as AnalyzerView[]).map((candidate) => (
+          {(['map', 'readiness', 'execution', 'features', 'files', 'documents', 'mcp-clients', 'dependencies', 'roadmap', 'qa'] as AnalyzerView[]).map((candidate) => (
             <button
               key={candidate}
               className={`analysis-tab ${view === candidate ? 'active' : ''}`}
@@ -920,10 +1003,11 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
               {candidate === 'features' && <Layers3 size={16} />}
               {candidate === 'files' && <FolderTree size={16} />}
               {candidate === 'documents' && <FileText size={16} />}
+              {candidate === 'mcp-clients' && <KeyRound size={16} />}
               {candidate === 'dependencies' && <Network size={16} />}
               {candidate === 'roadmap' && <Milestone size={16} />}
               {candidate === 'qa' && <ClipboardCheck size={16} />}
-              {candidate === 'qa' ? 'QA' : candidate === 'documents' ? 'MD Docs' : candidate === 'readiness' ? 'MVP Readiness' : candidate === 'execution' ? 'Work Queue' : candidate[0].toUpperCase() + candidate.slice(1)}
+              {candidate === 'qa' ? 'QA' : candidate === 'documents' ? 'MD Docs' : candidate === 'mcp-clients' ? 'MCP Clients' : candidate === 'readiness' ? 'MVP Readiness' : candidate === 'execution' ? 'Work Queue' : candidate[0].toUpperCase() + candidate.slice(1)}
             </button>
           ))}
         </div>
@@ -1013,6 +1097,15 @@ export function ProjectAnalyzer({ model }: ProjectAnalyzerProps) {
           onAddBatchTemplate={addBatchTemplate}
           onUpdateBatchTemplate={updateBatchTemplate}
           onDeleteBatchTemplate={deleteBatchTemplate}
+        />
+      )}
+
+      {view === 'mcp-clients' && (
+        <ProjectMCPClientProfiles
+          model={workingModel}
+          onAddProfile={addMCPClientProfile}
+          onUpdateProfile={updateMCPClientProfile}
+          onQueueProfileWork={enqueueMCPClientWork}
         />
       )}
 
