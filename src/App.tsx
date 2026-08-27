@@ -138,6 +138,7 @@ function App() {
   const openAnalysis = useCallback(() => navigate({ page: 'analysis' }), []);
   const openQA = useCallback(() => navigate({ page: 'qa' }), []);
   const openRoadmap = useCallback(() => navigate({ page: 'roadmap' }), []);
+  const isProjectWorkspace = route.page === 'analysis' || route.page === 'qa' || route.page === 'roadmap';
 
   const cycleTheme = useCallback(() => {
     const idx = THEME_OPTIONS.findIndex((t) => t.id === theme);
@@ -173,20 +174,28 @@ function App() {
   }, []);
 
   // ── Command palette items ──────────────────────────────
-  const commands = useMemo<CommandItem[]>(() => [
-    { id: 'catalogue', label: 'Open Catalogue', icon: <LayoutGrid size={18} />, action: openGallery },
-    { id: 'designer', label: 'Open Designer', icon: <PenTool size={18} />, action: openDesigner },
-    { id: 'learn', label: 'Open Ontology School', icon: <BookOpen size={18} />, action: openLearn },
-    { id: 'analysis', label: 'Open Project Analyzer', icon: <Network size={18} />, action: openAnalysis },
-    { id: 'qa', label: 'Open QA Dashboard', icon: <ClipboardCheck size={18} />, action: openQA },
-    { id: 'roadmap', label: 'Open Roadmap Dashboard', icon: <Map size={18} />, action: openRoadmap },
-    { id: 'import-export', label: 'Import / Export', icon: <FileJson size={18} />, action: () => setShowImportExport(true) },
-    { id: 'summary', label: 'View Summary', icon: <FileText size={18} />, action: () => setShowSummary(true) },
-    { id: 'about', label: 'About & Trademark Notice', icon: <Info size={18} />, action: () => setShowAbout(true) },
-    { id: 'help', label: 'Help', icon: <HelpCircle size={18} />, shortcut: '?', action: () => setShowHelp(true) },
-    { id: 'data-sources', label: 'Data Sources', icon: <Database size={18} />, action: () => setShowDataSources(true) },
-    { id: 'theme', label: 'Switch Theme', icon: <Palette size={18} />, action: cycleTheme },
-  ], [openGallery, openDesigner, openLearn, openAnalysis, openQA, openRoadmap, cycleTheme]);
+  const commands = useMemo<CommandItem[]>(() => {
+    const projectCommands: CommandItem[] = [
+      { id: 'analysis', label: 'Open Project Map', icon: <Network size={18} />, action: openAnalysis },
+      { id: 'qa', label: 'Open QA Dashboard', icon: <ClipboardCheck size={18} />, action: openQA },
+      { id: 'roadmap', label: 'Open Roadmap Dashboard', icon: <Map size={18} />, action: openRoadmap },
+      { id: 'theme', label: 'Switch Theme', icon: <Palette size={18} />, action: cycleTheme },
+    ];
+
+    if (isProjectWorkspace) return projectCommands;
+
+    return [
+      { id: 'catalogue', label: 'Open Catalogue', icon: <LayoutGrid size={18} />, action: openGallery },
+      { id: 'designer', label: 'Open Designer', icon: <PenTool size={18} />, action: openDesigner },
+      { id: 'learn', label: 'Open Ontology School', icon: <BookOpen size={18} />, action: openLearn },
+      ...projectCommands,
+      { id: 'import-export', label: 'Import / Export', icon: <FileJson size={18} />, action: () => setShowImportExport(true) },
+      { id: 'summary', label: 'View Summary', icon: <FileText size={18} />, action: () => setShowSummary(true) },
+      { id: 'about', label: 'About & Trademark Notice', icon: <Info size={18} />, action: () => setShowAbout(true) },
+      { id: 'help', label: 'Help', icon: <HelpCircle size={18} />, shortcut: '?', action: () => setShowHelp(true) },
+      { id: 'data-sources', label: 'Data Sources', icon: <Database size={18} />, action: () => setShowDataSources(true) },
+    ];
+  }, [isProjectWorkspace, openGallery, openDesigner, openLearn, openAnalysis, openQA, openRoadmap, cycleTheme]);
 
   const headerProps = {
     onAboutClick: () => setShowAbout(true),

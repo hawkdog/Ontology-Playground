@@ -31,6 +31,8 @@ export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImport
   const themeMenuRef = useRef<HTMLDivElement>(null);
 
   const ontologyDisplayName = currentOntology.name || 'Untitled Ontology';
+  const isProjectWorkspace = route.page === 'analysis' || route.page === 'qa' || route.page === 'roadmap';
+  const headerContext = isProjectWorkspace ? 'Project Analyzer Workspace' : ontologyDisplayName;
 
   const shareableId = route.page === 'catalogue' && route.ontologyId ? route.ontologyId : null;
 
@@ -99,6 +101,37 @@ export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImport
   }, [themeMenuOpen]);
 
   const menuAction = (fn: () => void) => () => { setMenuOpen(false); fn(); };
+  const renderThemePicker = () => (
+    <div className="theme-picker" ref={themeMenuRef}>
+      <button
+        className="icon-btn"
+        onClick={() => setThemeMenuOpen((o) => !o)}
+        data-tooltip="Theme"
+        aria-label="Theme"
+        aria-haspopup="menu"
+        aria-expanded={themeMenuOpen}
+      >
+        <Palette size={20} />
+      </button>
+      {themeMenuOpen && (
+        <div className="theme-menu" role="menu">
+          {THEME_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              className={`theme-menu-item ${theme === opt.id ? 'active' : ''}`}
+              onClick={() => { setTheme(opt.id); setThemeMenuOpen(false); }}
+              role="menuitemradio"
+              aria-checked={theme === opt.id}
+            >
+              <span className="theme-swatch" style={{ background: opt.swatch }} />
+              {opt.label}
+              {theme === opt.id && <Check size={16} className="theme-check" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <header className="header">
@@ -114,101 +147,95 @@ export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImport
           <span className="header-title">
             Ontology Playground <span className="header-title-preview">(Preview)</span>
           </span>
-          <span className="header-context">{ontologyDisplayName}</span>
+          <span className="header-context">{headerContext}</span>
         </div>
       </div>
 
-      <div className="header-stats">
-        <div className="stat-item">
-          <Trophy size={18} />
-          <span className="stat-value">{totalPoints}</span>
-          <span>points</span>
+      {!isProjectWorkspace && (
+        <div className="header-stats">
+          <div className="stat-item">
+            <Trophy size={18} />
+            <span className="stat-value">{totalPoints}</span>
+            <span>points</span>
+          </div>
+          <div className="stat-item">
+            <span style={{ fontSize: 18 }}>🏆</span>
+            <span className="stat-value">{earnedBadges.length}</span>
+            <span>badges</span>
+          </div>
         </div>
-        <div className="stat-item">
-          <span style={{ fontSize: 18 }}>🏆</span>
-          <span className="stat-value">{earnedBadges.length}</span>
-          <span>badges</span>
-        </div>
-      </div>
+      )}
 
       <div className="header-actions">
-        <button
-          className="header-text-btn"
-          onClick={handleShare}
-          title={shareableId ? 'Copy shareable link to this ontology' : 'Share this ontology via link'}
-          style={shareStatus === 'copied' ? { color: 'var(--ms-green, #107C10)' } : shareStatus === 'downloaded' ? { color: 'var(--ms-blue, #0078D4)' } : undefined}
-        >
-          {shareStatus === 'downloaded' ? <Download size={16} /> : <Share2 size={16} />}
-          <span>{shareLabel}</span>
-        </button>
-        <button className="header-text-btn" onClick={onSummaryClick} title="View Ontology Summary">
-          <FileText size={16} />
-          <span>Summary</span>
-        </button>
-        {onNLBuilderClick && (
-          <button className="icon-btn" onClick={onNLBuilderClick} data-tooltip="AI Builder" aria-label="AI Builder">
-            <Sparkles size={20} />
-          </button>
+        {isProjectWorkspace ? (
+          <>
+            <button className="header-text-btn" onClick={onAnalysisClick} title="Open Project Map">
+              <Network size={16} />
+              <span>Project Map</span>
+            </button>
+            <button className="header-text-btn" onClick={onQAClick} title="Open QA Dashboard">
+              <ClipboardCheck size={16} />
+              <span>QA</span>
+            </button>
+            <button className="header-text-btn" onClick={onRoadmapClick} title="Open Roadmap Dashboard">
+              <Map size={16} />
+              <span>Roadmap</span>
+            </button>
+            {renderThemePicker()}
+          </>
+        ) : (
+          <>
+            <button
+              className="header-text-btn"
+              onClick={handleShare}
+              title={shareableId ? 'Copy shareable link to this ontology' : 'Share this ontology via link'}
+              style={shareStatus === 'copied' ? { color: 'var(--ms-green, #107C10)' } : shareStatus === 'downloaded' ? { color: 'var(--ms-blue, #0078D4)' } : undefined}
+            >
+              {shareStatus === 'downloaded' ? <Download size={16} /> : <Share2 size={16} />}
+              <span>{shareLabel}</span>
+            </button>
+            <button className="header-text-btn" onClick={onSummaryClick} title="View Ontology Summary">
+              <FileText size={16} />
+              <span>Summary</span>
+            </button>
+            {onNLBuilderClick && (
+              <button className="icon-btn" onClick={onNLBuilderClick} data-tooltip="AI Builder" aria-label="AI Builder">
+                <Sparkles size={20} />
+              </button>
+            )}
+            <button className="icon-btn" onClick={onGalleryClick} data-tooltip="Catalogue" aria-label="Catalogue">
+              <LayoutGrid size={20} />
+            </button>
+            <button className="icon-btn" onClick={onDesignerClick} data-tooltip="Designer" aria-label="Designer">
+              <PenTool size={20} />
+            </button>
+            <button className="icon-btn" onClick={onLearnClick} data-tooltip="Ontology School" aria-label="Ontology School">
+              <BookOpen size={20} />
+            </button>
+            <button className="icon-btn" onClick={onAnalysisClick} data-tooltip="Project Analyzer" aria-label="Project Analyzer">
+              <Network size={20} />
+            </button>
+            <button className="icon-btn" onClick={onQAClick} data-tooltip="QA Dashboard" aria-label="QA Dashboard">
+              <ClipboardCheck size={20} />
+            </button>
+            <button className="icon-btn" onClick={onRoadmapClick} data-tooltip="Roadmap Dashboard" aria-label="Roadmap Dashboard">
+              <Map size={20} />
+            </button>
+            <button className="icon-btn" onClick={onImportExportClick} data-tooltip="Import / Export" aria-label="Import / Export">
+              <FileJson size={20} />
+            </button>
+            <button className="icon-btn" onClick={onHelpClick} data-tooltip="Help" aria-label="Help">
+              <HelpCircle size={20} />
+            </button>
+            <button className="icon-btn" onClick={onAboutClick} data-tooltip="About" aria-label="About">
+              <Info size={20} />
+            </button>
+            <button className="icon-btn" onClick={onDataSourcesClick} data-tooltip="Data Sources" aria-label="Data Sources">
+              <Database size={20} />
+            </button>
+            {renderThemePicker()}
+          </>
         )}
-        <button className="icon-btn" onClick={onGalleryClick} data-tooltip="Catalogue" aria-label="Catalogue">
-          <LayoutGrid size={20} />
-        </button>
-        <button className="icon-btn" onClick={onDesignerClick} data-tooltip="Designer" aria-label="Designer">
-          <PenTool size={20} />
-        </button>
-        <button className="icon-btn" onClick={onLearnClick} data-tooltip="Ontology School" aria-label="Ontology School">
-          <BookOpen size={20} />
-        </button>
-        <button className="icon-btn" onClick={onAnalysisClick} data-tooltip="Project Analyzer" aria-label="Project Analyzer">
-          <Network size={20} />
-        </button>
-        <button className="icon-btn" onClick={onQAClick} data-tooltip="QA Dashboard" aria-label="QA Dashboard">
-          <ClipboardCheck size={20} />
-        </button>
-        <button className="icon-btn" onClick={onRoadmapClick} data-tooltip="Roadmap Dashboard" aria-label="Roadmap Dashboard">
-          <Map size={20} />
-        </button>
-        <button className="icon-btn" onClick={onImportExportClick} data-tooltip="Import / Export" aria-label="Import / Export">
-          <FileJson size={20} />
-        </button>
-        <button className="icon-btn" onClick={onHelpClick} data-tooltip="Help" aria-label="Help">
-          <HelpCircle size={20} />
-        </button>
-        <button className="icon-btn" onClick={onAboutClick} data-tooltip="About" aria-label="About">
-          <Info size={20} />
-        </button>
-        <button className="icon-btn" onClick={onDataSourcesClick} data-tooltip="Data Sources" aria-label="Data Sources">
-          <Database size={20} />
-        </button>
-        <div className="theme-picker" ref={themeMenuRef}>
-          <button
-            className="icon-btn"
-            onClick={() => setThemeMenuOpen((o) => !o)}
-            data-tooltip="Theme"
-            aria-label="Theme"
-            aria-haspopup="menu"
-            aria-expanded={themeMenuOpen}
-          >
-            <Palette size={20} />
-          </button>
-          {themeMenuOpen && (
-            <div className="theme-menu" role="menu">
-              {THEME_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  className={`theme-menu-item ${theme === opt.id ? 'active' : ''}`}
-                  onClick={() => { setTheme(opt.id); setThemeMenuOpen(false); }}
-                  role="menuitemradio"
-                  aria-checked={theme === opt.id}
-                >
-                  <span className="theme-swatch" style={{ background: opt.swatch }} />
-                  {opt.label}
-                  {theme === opt.id && <Check size={16} className="theme-check" />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Mobile hamburger menu */}
@@ -218,56 +245,74 @@ export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImport
         </button>
         {menuOpen && (
           <div className="mobile-menu-dropdown">
-            <div className="mobile-menu-stats">
-              <Trophy size={16} />
-              <span className="stat-value">{totalPoints}</span>
-              <span>points</span>
-              <span style={{ margin: '0 8px', color: 'var(--text-tertiary)' }}>·</span>
-              <span>🏆</span>
-              <span className="stat-value">{earnedBadges.length}</span>
-              <span>badges</span>
-            </div>
-            <button className="mobile-menu-item" onClick={menuAction(handleShare)}>
-              <Share2 size={18} /> {shareLabel}
-            </button>
-            <button className="mobile-menu-item" onClick={menuAction(onSummaryClick)}>
-              <FileText size={18} /> Summary
-            </button>
-            {onNLBuilderClick && (
-              <button className="mobile-menu-item" onClick={menuAction(onNLBuilderClick)}>
-                <Sparkles size={18} /> AI Builder
-              </button>
+            {!isProjectWorkspace && (
+              <div className="mobile-menu-stats">
+                <Trophy size={16} />
+                <span className="stat-value">{totalPoints}</span>
+                <span>points</span>
+                <span style={{ margin: '0 8px', color: 'var(--text-tertiary)' }}>·</span>
+                <span>🏆</span>
+                <span className="stat-value">{earnedBadges.length}</span>
+                <span>badges</span>
+              </div>
             )}
-            <button className="mobile-menu-item" onClick={menuAction(onGalleryClick)}>
-              <LayoutGrid size={18} /> Catalogue
-            </button>
-            <button className="mobile-menu-item" onClick={menuAction(onDesignerClick)}>
-              <PenTool size={18} /> Designer
-            </button>
-            <button className="mobile-menu-item" onClick={menuAction(onLearnClick)}>
-              <BookOpen size={18} /> Ontology School
-            </button>
-            <button className="mobile-menu-item" onClick={menuAction(onAnalysisClick)}>
-              <Network size={18} /> Project Analyzer
-            </button>
-            <button className="mobile-menu-item" onClick={menuAction(onQAClick)}>
-              <ClipboardCheck size={18} /> QA Dashboard
-            </button>
-            <button className="mobile-menu-item" onClick={menuAction(onRoadmapClick)}>
-              <Map size={18} /> Roadmap Dashboard
-            </button>
-            <button className="mobile-menu-item" onClick={menuAction(onImportExportClick)}>
-              <FileJson size={18} /> Import / Export
-            </button>
-            <button className="mobile-menu-item" onClick={menuAction(onHelpClick)}>
-              <HelpCircle size={18} /> Help
-            </button>
-            <button className="mobile-menu-item" onClick={menuAction(onAboutClick)}>
-              <Info size={18} /> About
-            </button>
-            <button className="mobile-menu-item" onClick={menuAction(onDataSourcesClick)}>
-              <Database size={18} /> Data Sources
-            </button>
+            {isProjectWorkspace ? (
+              <>
+                <button className="mobile-menu-item" onClick={menuAction(onAnalysisClick)}>
+                  <Network size={18} /> Project Map
+                </button>
+                <button className="mobile-menu-item" onClick={menuAction(onQAClick)}>
+                  <ClipboardCheck size={18} /> QA
+                </button>
+                <button className="mobile-menu-item" onClick={menuAction(onRoadmapClick)}>
+                  <Map size={18} /> Roadmap
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="mobile-menu-item" onClick={menuAction(handleShare)}>
+                  <Share2 size={18} /> {shareLabel}
+                </button>
+                <button className="mobile-menu-item" onClick={menuAction(onSummaryClick)}>
+                  <FileText size={18} /> Summary
+                </button>
+                {onNLBuilderClick && (
+                  <button className="mobile-menu-item" onClick={menuAction(onNLBuilderClick)}>
+                    <Sparkles size={18} /> AI Builder
+                  </button>
+                )}
+                <button className="mobile-menu-item" onClick={menuAction(onGalleryClick)}>
+                  <LayoutGrid size={18} /> Catalogue
+                </button>
+                <button className="mobile-menu-item" onClick={menuAction(onDesignerClick)}>
+                  <PenTool size={18} /> Designer
+                </button>
+                <button className="mobile-menu-item" onClick={menuAction(onLearnClick)}>
+                  <BookOpen size={18} /> Ontology School
+                </button>
+                <button className="mobile-menu-item" onClick={menuAction(onAnalysisClick)}>
+                  <Network size={18} /> Project Analyzer
+                </button>
+                <button className="mobile-menu-item" onClick={menuAction(onQAClick)}>
+                  <ClipboardCheck size={18} /> QA Dashboard
+                </button>
+                <button className="mobile-menu-item" onClick={menuAction(onRoadmapClick)}>
+                  <Map size={18} /> Roadmap Dashboard
+                </button>
+                <button className="mobile-menu-item" onClick={menuAction(onImportExportClick)}>
+                  <FileJson size={18} /> Import / Export
+                </button>
+                <button className="mobile-menu-item" onClick={menuAction(onHelpClick)}>
+                  <HelpCircle size={18} /> Help
+                </button>
+                <button className="mobile-menu-item" onClick={menuAction(onAboutClick)}>
+                  <Info size={18} /> About
+                </button>
+                <button className="mobile-menu-item" onClick={menuAction(onDataSourcesClick)}>
+                  <Database size={18} /> Data Sources
+                </button>
+              </>
+            )}
             <div className="mobile-menu-themes">
               {THEME_OPTIONS.map((opt) => (
                 <button
