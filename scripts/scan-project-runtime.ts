@@ -322,6 +322,9 @@ function mcpAlignmentTargets(relativePath: string, title: string, body: string, 
   if (/(security|owasp|nist|auth|permission|license|entitlement|secret|token|key)/.test(value)) targets.push('Security baseline');
   if (/(wordpress|plugin|php|wp-admin|wp-cron|sync)/.test(value)) targets.push('WordPress/plugin integration');
   if (/(brand|icp|research|citation|link|campaign|brief|content context|context pack)/.test(value)) targets.push('Content intelligence resources');
+  if (/(license|licensing|subscription|billing|stripe|token|plan|tier|entitlement|feature[-\s]?gate)/.test(value)) targets.push('Commercial/licensing model');
+  if (/(feature matrix|feature comparison|functionality|capability|feature key|feature flag)/.test(value)) targets.push('Product/functionality documentation');
+  if (/(user guide|faq|how to|onboarding|sales|website|pricing|positioning|plan copy|customer-facing)/.test(value)) targets.push('Customer-facing documentation source');
   if (/(qa|test|evidence|smoke|retest|acceptance)/.test(value) || purpose === 'qa') targets.push('QA/release evidence');
   if (/(roadmap|mvp|execution|work queue|backlog|todo)/.test(value) || purpose === 'roadmap') targets.push('Execution planning');
   return uniqueStrings(targets);
@@ -333,7 +336,9 @@ function mcpAuditFindings(relativePath: string, title: string, body: string, pur
   if (/(mcp|platform api|server)/.test(value)) findings.push('Review this document while defining MCP tool contracts and API boundaries.');
   if (/(supabase|postgres|rls|schema|migration|sql)/.test(value)) findings.push('Check this document against current migrations, RLS policies, and API helpers.');
   if (purpose === 'security' || /(security|owasp|auth|permission|license|entitlement)/.test(value)) findings.push('Use this document as an input to the security and entitlement audit.');
-  return uniqueStrings(findings).slice(0, 3);
+  if (/(license|licensing|subscription|billing|stripe|token|plan|tier|entitlement|feature[-\s]?gate)/.test(value)) findings.push('Use this document while mapping MCP/API tiers, token billing, feature gates, and subscription copy.');
+  if (/(user guide|faq|how to|onboarding|sales|website|pricing|positioning|customer-facing)/.test(value)) findings.push('Review this document before creating user guides, FAQs, website copy, or sales descriptions.');
+  return uniqueStrings(findings).slice(0, 4);
 }
 
 function repositoryIdsForFile(filePath: string, candidates: RepoCandidate[]): string[] {
@@ -366,18 +371,22 @@ function featureIdsForMarkdown(relativePath: string, title: string, body: string
   }).slice(0, 8);
 }
 
-function tagsForMarkdown(relativePath: string, purpose: MarkdownDocumentPurpose, repositoryIds: string[]): string[] {
+function tagsForMarkdown(relativePath: string, title: string, body: string, purpose: MarkdownDocumentPurpose, repositoryIds: string[]): string[] {
   const parts = relativePath.toLowerCase().split('/');
   const docFolder = parts.includes('docs') ? parts[parts.indexOf('docs') + 1] : undefined;
-  const value = relativePath.toLowerCase();
+  const value = `${relativePath} ${title} ${body.slice(0, 4000)}`.toLowerCase();
   const mcpTags = [
     /mcp|model-context-protocol/.test(value) ? 'mcp-platform-mvp' : undefined,
     /supabase|postgres|rls|sql|migration/.test(value) ? 'schema-api-audit' : undefined,
     /security|owasp|auth|permission|license|entitlement/.test(value) ? 'security-baseline' : undefined,
     /wordpress|plugin|php/.test(value) ? 'wordpress-plugin' : undefined,
     /research|brand|icp|campaign|brief|context/.test(value) ? 'content-intelligence' : undefined,
+    /license|licensing|subscription|billing|stripe|token|plan|tier|entitlement|feature[-\s]?gate/.test(value) ? 'licensing-billing' : undefined,
+    /feature matrix|feature comparison|functionality|capability|feature key|feature flag/.test(value) ? 'functionality-reference' : undefined,
+    /user guide|faq|how to|onboarding|customer-facing|docs|documentation/.test(value) ? 'customer-guides' : undefined,
+    /sales|website|pricing|positioning|plan copy|offer/.test(value) ? 'sales-enablement' : undefined,
   ];
-  return uniqueStrings([purpose, docFolder, ...mcpTags, ...repositoryIds]).slice(0, 10);
+  return uniqueStrings([purpose, docFolder, ...mcpTags, ...repositoryIds]).slice(0, 14);
 }
 
 function markdownPriority(filePath: string, root: string): number {
@@ -386,6 +395,8 @@ function markdownPriority(filePath: string, root: string): number {
   if (/(mcp|model-context-protocol|platform-api|content-intelligence)/.test(relativePath)) score -= 200;
   if (/(supabase|postgres|rls|schema|migration|sql|edge-function)/.test(relativePath)) score -= 160;
   if (/(security|owasp|nist|auth|permission|license|entitlement)/.test(relativePath)) score -= 140;
+  if (/(licensing|subscription|billing|stripe|token|tier|feature-matrix|feature-comparison)/.test(relativePath)) score -= 150;
+  if (/(user-guide|faq|onboarding|sales|website|pricing|positioning)/.test(relativePath)) score -= 90;
   if (/(roadmap|mvp|execution|work-queue|audit|checklist|runbook)/.test(relativePath)) score -= 100;
   if (relativePath.includes('v2-ai-content-creator-app-358/')) score -= 40;
   if (relativePath.includes('content-plugin/')) score -= 30;
@@ -486,7 +497,7 @@ async function discoverMarkdownDocuments(root: string, candidates: RepoCandidate
       sourceSection: markdownSourceSection(body),
       sensitivity: 'private' satisfies MarkdownDocumentSensitivity,
       updatedAt: dateOnly(details.mtime),
-      tags: tagsForMarkdown(relativePath, purpose, repositoryIds),
+      tags: tagsForMarkdown(relativePath, title, body, purpose, repositoryIds),
       alignmentTargets,
       auditFindings: mcpAuditFindings(relativePath, title, body, purpose),
     });
